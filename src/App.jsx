@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   X,
+  Swords,
 } from "lucide-react";
 
 const ACTIONS = [
@@ -49,8 +50,7 @@ const DEFAULT_FORMATION = {
   "LW/LB": [{ x: 20, y: 25 }, { x: 18, y: 72 }],
 };
 
-const DEMO_OCR_TEXT = `PlayerA 
-CM`;
+const DEMO_OCR_TEXT = `PlayerA\nCM`;
 
 const STORAGE_KEY = "ray-scout-pitch-app-vite-v1";
 
@@ -84,7 +84,7 @@ function isLikelyName(line) {
   if (/^(CONFIRMED|SELECTED|SQUAD)$/i.test(cleaned)) return false;
   if (/^[A-Z]{1,3}\d*$/i.test(cleaned)) return false;
   const parts = cleaned.split(" ").filter(Boolean);
-  return parts.length >= 2 && parts.every((part) => /[A-Za-z'’-]/.test(part));
+  return parts.length >= 2 && parts.every((part) => /[A-Za-z''-]/.test(part));
 }
 
 function normalisePosition(line) {
@@ -112,9 +112,7 @@ function parseOCRText(text) {
     .filter(Boolean)
     .filter(
       (l) =>
-        !/^(ant|wayne|barry|pete|jim birch|george dolby|dean bar|dean stanhop|lloyd gro)$/i.test(
-          l
-        )
+        !/^(ant|wayne|barry|pete|jim birch|george dolby|dean bar|dean stanhop|lloyd gro)$/i.test(l)
     );
 
   const players = [];
@@ -125,34 +123,19 @@ function parseOCRText(text) {
     const next2 = rawLines[i + 2] || "";
 
     if (isLikelyName(line) && isLikelyPosition(next)) {
-      players.push({
-        id: makeId(),
-        no: String(players.length + 1),
-        name: line,
-        pos: normalisePosition(next),
-      });
+      players.push({ id: makeId(), no: String(players.length + 1), name: line, pos: normalisePosition(next) });
       i += 1;
       continue;
     }
 
     if (isLikelyName(line) && /^(CONFIRMED|SELECTED)$/i.test(next) && isLikelyPosition(next2)) {
-      players.push({
-        id: makeId(),
-        no: String(players.length + 1),
-        name: line,
-        pos: normalisePosition(next2),
-      });
+      players.push({ id: makeId(), no: String(players.length + 1), name: line, pos: normalisePosition(next2) });
       i += 2;
       continue;
     }
 
     if (isLikelyName(line)) {
-      players.push({
-        id: makeId(),
-        no: String(players.length + 1),
-        name: line,
-        pos: "",
-      });
+      players.push({ id: makeId(), no: String(players.length + 1), name: line, pos: "" });
     }
   }
 
@@ -171,10 +154,7 @@ function getPositionSlot(players) {
 
   Object.entries(grouped).forEach(([posKey, group]) => {
     const primary = posKey.split("/")[0];
-    const baseSlots =
-      DEFAULT_FORMATION[posKey] ||
-      DEFAULT_FORMATION[primary] ||
-      [{ x: 50, y: 50 }];
+    const baseSlots = DEFAULT_FORMATION[posKey] || DEFAULT_FORMATION[primary] || [{ x: 50, y: 50 }];
 
     if (group.length <= baseSlots.length) {
       group.forEach((player, index) => {
@@ -187,11 +167,7 @@ function getPositionSlot(players) {
     const playersPerBase = Math.ceil(group.length / baseSlots.length);
 
     group.forEach((player, index) => {
-      const baseIndex = Math.min(
-        Math.floor(index / playersPerBase),
-        baseSlots.length - 1
-      );
-
+      const baseIndex = Math.min(Math.floor(index / playersPerBase), baseSlots.length - 1);
       const base = baseSlots[baseIndex];
       const localStart = baseIndex * playersPerBase;
       const localIndex = index - localStart;
@@ -205,18 +181,11 @@ function getPositionSlot(players) {
         const columns = Math.min(localCount, 3);
         const row = Math.floor(localIndex / columns);
         const col = localIndex % columns;
-
-        const horizontalOffset = (col - (columns - 1) / 2) * 8;
-        const verticalOffset = row * 7;
-
-        x = base.x + horizontalOffset;
-        y = base.y + verticalOffset;
+        x = base.x + (col - (columns - 1) / 2) * 8;
+        y = base.y + row * 7;
       }
 
-      x = Math.max(8, Math.min(92, x));
-      y = Math.max(8, Math.min(92, y));
-
-      placed.push({ ...player, x, y });
+      placed.push({ ...player, x: Math.max(8, Math.min(92, x)), y: Math.max(8, Math.min(92, y)) });
     });
   });
 
@@ -275,32 +244,30 @@ function runParserTests() {
     },
   ];
 
-  return {
-    tests,
-    passed: tests.filter((t) => t.pass).length,
-    total: tests.length,
-  };
+  return { tests, passed: tests.filter((t) => t.pass).length, total: tests.length };
 }
+
+function sortPlayersByNumber(list) {
+  return [...list].sort((a, b) => {
+    const aNo = parseInt(String(a.no || "").trim(), 10);
+    const bNo = parseInt(String(b.no || "").trim(), 10);
+    const aValid = !Number.isNaN(aNo);
+    const bValid = !Number.isNaN(bNo);
+    if (aValid && bValid) return aNo - bNo;
+    if (aValid) return -1;
+    if (bValid) return 1;
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
+}
+
+// ─── UI primitives ───────────────────────────────────────────────────────────
 
 function Button({ children, variant = "primary", className = "", ...props }) {
   const styles = {
-    primary: {
-      background: "#0f172a",
-      color: "#ffffff",
-      border: "1px solid #0f172a",
-    },
-    outline: {
-      background: "#ffffff",
-      color: "#0f172a",
-      border: "1px solid #cbd5e1",
-    },
-    danger: {
-      background: "#dc2626",
-      color: "#ffffff",
-      border: "1px solid #dc2626",
-    },
+    primary: { background: "#0f172a", color: "#ffffff", border: "1px solid #0f172a" },
+    outline: { background: "#ffffff", color: "#0f172a", border: "1px solid #cbd5e1" },
+    danger: { background: "#dc2626", color: "#ffffff", border: "1px solid #dc2626" },
   };
-
   return (
     <button
       {...props}
@@ -361,7 +328,6 @@ function Badge({ children, variant = "default" }) {
     variant === "danger"
       ? { background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca" }
       : { background: "#e2e8f0", color: "#0f172a", border: "1px solid #cbd5e1" };
-
   return (
     <span
       style={{
@@ -406,7 +372,6 @@ function CardContent({ children }) {
 
 function Modal({ open, onClose, title, children }) {
   if (!open) return null;
-
   return (
     <div
       onClick={onClose}
@@ -442,10 +407,7 @@ function Modal({ open, onClose, title, children }) {
           }}
         >
           <div style={{ fontSize: 20, fontWeight: 700 }}>{title}</div>
-          <button
-            onClick={onClose}
-            style={{ background: "transparent", border: "none", cursor: "pointer" }}
-          >
+          <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer" }}>
             <X size={20} />
           </button>
         </div>
@@ -455,21 +417,27 @@ function Modal({ open, onClose, title, children }) {
   );
 }
 
-function sortPlayersByNumber(list) {
-  return [...list].sort((a, b) => {
-    const aNo = parseInt(String(a.no || "").trim(), 10);
-    const bNo = parseInt(String(b.no || "").trim(), 10);
-
-    const aValid = !Number.isNaN(aNo);
-    const bValid = !Number.isNaN(bNo);
-
-    if (aValid && bValid) return aNo - bNo;
-    if (aValid) return -1;
-    if (bValid) return 1;
-
-    return String(a.name || "").localeCompare(String(b.name || ""));
-  });
+function MiniTabButton({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "8px 10px",
+        borderRadius: 10,
+        border: active ? "1px solid #0f172a" : "1px solid #cbd5e1",
+        background: active ? "#0f172a" : "#ffffff",
+        color: active ? "#ffffff" : "#0f172a",
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: "pointer",
+      }}
+    >
+      {children}
+    </button>
+  );
 }
+
+// ─── Main App ────────────────────────────────────────────────────────────────
 
 export default function App() {
   const fileRef = useRef(null);
@@ -480,7 +448,8 @@ export default function App() {
   const [matchName, setMatchName] = useState("U13 Match");
   const [opponent, setOpponent] = useState("");
   const [manualText, setManualText] = useState(DEMO_OCR_TEXT);
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState("");         // blob preview URL — NOT persisted
+  const [imageDataUrl, setImageDataUrl] = useState(""); // base64 data URL for OCR
   const [ocrText, setOcrText] = useState("");
   const [ocrError, setOcrError] = useState("");
   const [clock, setClock] = useState(0);
@@ -488,9 +457,16 @@ export default function App() {
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [activeTab, setActiveTab] = useState("extract");
   const [tests, setTests] = useState(runParserTests());
-  const [imageDataUrl, setImageDataUrl] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  // FIX #4: lazy initialiser — safe in SSR / non-browser environments
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 768 : false
+  );
+
+  const [extractMobileTab, setExtractMobileTab] = useState("photo");
+
+  // ── Persistence ────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -498,7 +474,6 @@ export default function App() {
       setPlayers(parseOCRText(DEMO_OCR_TEXT));
       return;
     }
-
     try {
       const parsed = JSON.parse(raw);
       setPlayers(parsed.players?.length ? parsed.players : parseOCRText(DEMO_OCR_TEXT));
@@ -508,19 +483,20 @@ export default function App() {
       setOpponent(parsed.opponent || "");
       setOcrText(parsed.ocrText || "");
       setManualText(parsed.manualText || DEMO_OCR_TEXT);
-      setImageUrl(parsed.imageUrl || "");
       setOcrError(parsed.ocrError || "");
+      // FIX #6: imageUrl (blob URL) is NOT restored from storage — blob URLs are session-only
     } catch {
       setPlayers(parseOCRText(DEMO_OCR_TEXT));
     }
   }, []);
 
   useEffect(() => {
+    // FIX #6: imageUrl excluded from persistence — it's a blob URL that won't survive reload
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ players, events, db, matchName, opponent, ocrText, manualText, imageUrl, ocrError })
+      JSON.stringify({ players, events, db, matchName, opponent, ocrText, manualText, ocrError })
     );
-  }, [players, events, db, matchName, opponent, ocrText, manualText, imageUrl, ocrError]);
+  }, [players, events, db, matchName, opponent, ocrText, manualText, ocrError]);
 
   useEffect(() => {
     if (!timerOn) return undefined;
@@ -528,221 +504,164 @@ export default function App() {
     return () => window.clearInterval(id);
   }, [timerOn]);
 
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth <= 768);
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // ── Derived state ──────────────────────────────────────────────────────────
+
   const placedPlayers = useMemo(() => getPositionSlot(players), [players]);
   const selectedPlayer = players.find((p) => p.id === selectedPlayerId) || null;
 
-const leaderboard = useMemo(() => {
-  return [...players]
-    .map((p) => ({
-      ...p,
-      score: scorePlayer(events, p.id),
-      counts: getActionCounts(events, p.id),
-    }))
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
+  const leaderboard = useMemo(() => {
+    return [...players]
+      .map((p) => ({ ...p, score: scorePlayer(events, p.id), counts: getActionCounts(events, p.id) }))
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        const aNo = parseInt(a.no, 10);
+        const bNo = parseInt(b.no, 10);
+        if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) return aNo - bNo;
+        return String(a.name).localeCompare(String(b.name));
+      });
+  }, [players, events]);
 
-      const aNo = parseInt(a.no, 10);
-      const bNo = parseInt(b.no, 10);
+  // ── Image handling ─────────────────────────────────────────────────────────
 
-      if (!Number.isNaN(aNo) && !Number.isNaN(bNo)) {
-        return aNo - bNo;
-      }
-
-      return String(a.name).localeCompare(String(b.name));
+  async function fileToDataUrl(file) {
+    const originalDataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
     });
-}, [players, events]);
 
-useEffect(() => {
-  function handleResize() {
-    setIsMobile(window.innerWidth <= 768);
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = originalDataUrl;
+    });
+
+    const maxWidth = 1400;
+    const scale = Math.min(1, maxWidth / img.width);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.72);
   }
 
-  window.addEventListener("resize", handleResize);
-  return () => window.removeEventListener("resize", handleResize);
-}, []);
-
-async function fileToDataUrl(file) {
-  const originalDataUrl = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
-  const img = await new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = originalDataUrl;
-  });
-
-  const maxWidth = 1400;
-  const scale = Math.min(1, maxWidth / img.width);
-  const width = Math.round(img.width * scale);
-  const height = Math.round(img.height * scale);
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, width, height);
-
-  return canvas.toDataURL("image/jpeg", 0.72);
-}
-
-async function handleImageUpload(e) {
-
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  try {
-
-    setOcrError("");
-
-    // preview image
-    const previewUrl = URL.createObjectURL(file);
-    setImageUrl(previewUrl);
-
-    // real image data
-    const dataUrl = await fileToDataUrl(file);
-    setImageDataUrl(dataUrl);
-
-  } catch (err) {
-    console.error(err);
-    setOcrError("Could not prepare image");
+  async function handleImageUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setOcrError("");
+      setImageUrl(URL.createObjectURL(file)); // blob preview — session-only, not stored
+      setImageDataUrl(await fileToDataUrl(file));
+    } catch (err) {
+      console.error(err);
+      setOcrError("Could not prepare image");
+    }
   }
-}
 
-function parsePlayersJson(text) {
+  // ── OCR / parsing ──────────────────────────────────────────────────────────
 
-  try {
-
-    const cleaned = String(text || "")
-      .replace(/^```json/i, "")
-      .replace(/^```/, "")
-      .replace(/```$/, "")
-      .trim();
-
-    const parsed = JSON.parse(cleaned);
-
-    if (!parsed.players || !Array.isArray(parsed.players)) {
+  function parsePlayersJson(text) {
+    try {
+      const cleaned = String(text || "")
+        .replace(/^```json/i, "")
+        .replace(/^```/, "")
+        .replace(/```$/, "")
+        .trim();
+      const parsed = JSON.parse(cleaned);
+      if (!parsed.players || !Array.isArray(parsed.players)) return [];
+      return parsed.players
+        .map((p, index) => ({
+          id: makeId(),
+          no: String(index + 1),
+          name: String(p.name || "").trim(),
+          pos: String(p.pos || "").trim().toUpperCase(),
+        }))
+        .filter((p) => p.name);
+    } catch (err) {
+      console.error("JSON parse failed:", err);
       return [];
     }
-
-    return parsed.players.map((p, index) => ({
-      id: makeId(),
-      no: String(index + 1),
-      name: String(p.name || "").trim(),
-      pos: String(p.pos || "").trim().toUpperCase()
-    }))
-    .filter(p => p.name);
-
-  } catch (err) {
-
-    console.error("JSON parse failed:", err);
-    return [];
-
-  }
-}
-
-async function runOCR() {
-  if (!imageDataUrl) {
-    setOcrError("Upload image first");
-    return;
   }
 
-  try {
-    setIsExtracting(true);
-    setOcrError("");
-
-    const response = await fetch("/api/extract-team-sheet", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ image: imageDataUrl }),
-    });
-
-    const rawText = await response.text();
-
-    let data;
+  async function runOCR() {
+    if (!imageDataUrl) { setOcrError("Upload image first"); return; }
     try {
-      data = JSON.parse(rawText);
-    } catch {
-      throw new Error(rawText || "Server returned non-JSON response");
+      setIsExtracting(true);
+      setOcrError("");
+      const response = await fetch("/api/extract-team-sheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: imageDataUrl }),
+      });
+      const rawText = await response.text();
+      let data;
+      try { data = JSON.parse(rawText); }
+      catch { throw new Error(rawText || "Server returned non-JSON response"); }
+      if (!response.ok) throw new Error(data.detail || data.error || "OCR failed");
+      if (!data.result) throw new Error("No OCR result returned");
+      setOcrText(data.result);
+      const parsedPlayers = parsePlayersJson(data.result);
+      if (parsedPlayers.length > 0) {
+        setPlayers(sortPlayersByNumber(parsedPlayers));
+        setActiveTab("players");
+      } else {
+        setOcrError("OCR returned text but player JSON could not be parsed.");
+      }
+    } catch (err) {
+      console.error(err);
+      setOcrError(err.message || "OCR failed");
+    } finally {
+      setIsExtracting(false);
     }
+  }
 
-    if (!response.ok) {
-      throw new Error(data.detail || data.error || "OCR failed");
-    }
-
-    if (!data.result) {
-      throw new Error("No OCR result returned");
-    }
-
-    setOcrText(data.result);
-
-    const parsedPlayers = parsePlayersJson(data.result);
-
-    if (parsedPlayers.length > 0) {
-      setPlayers(sortPlayersByNumber(parsedPlayers));
+  function applyManualParse(sourceText = manualText) {
+    const jsonPlayers = parsePlayersJson(sourceText);
+    if (jsonPlayers.length) {
+      setPlayers(sortPlayersByNumber(jsonPlayers));
       setActiveTab("players");
-    } else {
-      setOcrError("OCR returned text but player JSON could not be parsed.");
+      setOcrError("");
+      return;
     }
-  } catch (err) {
-    console.error(err);
-    setOcrError(err.message || "OCR failed");
-  } finally {
-    setIsExtracting(false);
+    const extracted = parseOCRText(sourceText);
+    if (extracted.length) {
+      setPlayers(sortPlayersByNumber(extracted));
+      setActiveTab("players");
+      setOcrError("");
+      return;
+    }
+    setOcrError("No players could be parsed.");
   }
-}
-
-function applyManualParse(sourceText = manualText) {
-
-  const jsonPlayers = parsePlayersJson(sourceText);
-
-  if (jsonPlayers.length) {
-    setPlayers(sortPlayersByNumber(jsonPlayers));
-    setActiveTab("players");
-    setOcrError("");
-    return;
-  }
-
-  const extracted = parseOCRText(sourceText);
-
-  if (extracted.length) {
-    setPlayers(sortPlayersByNumber(extracted));
-    setActiveTab("players");
-    setOcrError("");
-    return;
-  }
-
-  setOcrError("No players could be parsed.");
-}
 
   function loadDemoText() {
     setManualText(DEMO_OCR_TEXT);
     setOcrError("");
   }
 
+  // ── Player management ──────────────────────────────────────────────────────
+
   function addBlankPlayer() {
-  setPlayers((prev) =>
-    sortPlayersByNumber([
-      ...prev,
-      { id: makeId(), no: String(prev.length + 1), name: "New Player", pos: "CM" },
-    ])
-  );
-}
+    setPlayers((prev) =>
+      sortPlayersByNumber([
+        ...prev,
+        { id: makeId(), no: String(prev.length + 1), name: "New Player", pos: "CM" },
+      ])
+    );
+  }
 
   function updatePlayer(id, patch) {
-  setPlayers((prev) =>
-    sortPlayersByNumber(
-      prev.map((p) => (p.id === id ? { ...p, ...patch } : p))
-    )
-  );
-}
+    setPlayers((prev) => sortPlayersByNumber(prev.map((p) => (p.id === id ? { ...p, ...patch } : p))));
+  }
 
   function removePlayer(id) {
     setPlayers((prev) => prev.filter((p) => p.id !== id));
@@ -750,45 +669,26 @@ function applyManualParse(sourceText = manualText) {
     if (selectedPlayerId === id) setSelectedPlayerId(null);
   }
 
+  // ── Match events ───────────────────────────────────────────────────────────
+
   function logAction(actionKey) {
     if (!selectedPlayerId) return;
     setEvents((prev) => [
-      {
-        id: makeId(),
-        t: clock,
-        playerId: selectedPlayerId,
-        action: actionKey,
-        ts: new Date().toISOString(),
-      },
+      { id: makeId(), t: clock, playerId: selectedPlayerId, action: actionKey, ts: new Date().toISOString() },
       ...prev,
     ]);
   }
 
-  function undoLastEvent() {
-    setEvents((prev) => prev.slice(1));
-  }
+  function undoLastEvent() { setEvents((prev) => prev.slice(1)); }
 
   function finishMatch() {
     const summary = leaderboard.map((p) => ({
-      playerId: p.id,
-      no: p.no,
-      name: p.name,
-      pos: p.pos,
-      score: p.score,
-      counts: p.counts,
+      playerId: p.id, no: p.no, name: p.name, pos: p.pos, score: p.score, counts: p.counts,
     }));
-
-    const record = {
-      id: makeId(),
-      matchName,
-      opponent,
-      playedAt: new Date().toISOString(),
-      durationSeconds: clock,
-      summary,
-      events,
-    };
-
-    setDb((prev) => [record, ...prev]);
+    setDb((prev) => [
+      { id: makeId(), matchName, opponent, playedAt: new Date().toISOString(), durationSeconds: clock, summary, events },
+      ...prev,
+    ]);
   }
 
   function resetMatch() {
@@ -798,9 +698,10 @@ function applyManualParse(sourceText = manualText) {
     setSelectedPlayerId(null);
   }
 
+  // ── Export ─────────────────────────────────────────────────────────────────
+
   function exportJSON() {
-    const payload = { players, events, db, matchName, opponent };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ players, events, db, matchName, opponent }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -828,14 +729,18 @@ function applyManualParse(sourceText = manualText) {
     URL.revokeObjectURL(url);
   }
 
+  // FIX #3: "duel" is now included in the rendered action buttons
   const actionButtons = [
-    { key: "goal", icon: Goal, label: "Goal" },
-    { key: "assist", icon: Target, label: "Assist" },
-    { key: "pace", icon: Zap, label: "Pace" },
-    { key: "iq", icon: Brain, label: "IQ" },
-    { key: "physical", icon: Shield, label: "Physical" },
-    { key: "weak", icon: SquarePen, label: "Weak" },
+    { key: "goal",     icon: Goal,    label: "Goal"     },
+    { key: "assist",   icon: Target,  label: "Assist"   },
+    { key: "pace",     icon: Zap,     label: "Pace"     },
+    { key: "iq",       icon: Brain,   label: "IQ"       },
+    { key: "physical", icon: Shield,  label: "Physical" },
+    { key: "duel",     icon: Swords,  label: "Duel Won" }, // was missing
+    { key: "weak",     icon: SquarePen, label: "Weak"   },
   ];
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div
@@ -844,11 +749,12 @@ function applyManualParse(sourceText = manualText) {
         background: "#f1f5f9",
         padding: 16,
         color: "#0f172a",
-        fontFamily:
-          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
       <div style={{ maxWidth: 1320, margin: "0 auto", display: "grid", gap: 16 }}>
+
+        {/* ── Header row ─────────────────────────────────────────────────── */}
         <div
           style={{
             display: "grid",
@@ -858,15 +764,7 @@ function applyManualParse(sourceText = manualText) {
         >
           <Card>
             <CardHeader>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  flexWrap: "wrap",
-                }}
-              >
+              <div style={{ display: "flex", gap: 12, justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap" }}>
                 <div>
                   <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 10 }}>Scout Match Flow</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -876,38 +774,23 @@ function applyManualParse(sourceText = manualText) {
                     <Badge>Player Database</Badge>
                   </div>
                 </div>
-
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <Button variant="outline" onClick={exportJSON}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      <Download size={16} /> JSON
-                    </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Download size={16} /> JSON</span>
                   </Button>
                   <Button variant="outline" onClick={exportCSV}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      <Download size={16} /> CSV
-                    </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Download size={16} /> CSV</span>
                   </Button>
                   <Button onClick={finishMatch}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      <Save size={16} /> Save Match
-                    </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Save size={16} /> Save Match</span>
                   </Button>
                 </div>
               </div>
             </CardHeader>
-
             <CardContent>
-              <div
-                style={{
-                  display: "grid",
-                  gap: 12,
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                }}
-              >
+              <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
                 <Input value={matchName} onChange={(e) => setMatchName(e.target.value)} placeholder="Match name" />
                 <Input value={opponent} onChange={(e) => setOpponent(e.target.value)} placeholder="Opponent" />
-
                 <div
                   style={{
                     display: "flex",
@@ -928,9 +811,7 @@ function applyManualParse(sourceText = manualText) {
                     <Button variant="outline" onClick={() => setTimerOn((s) => !s)}>
                       {timerOn ? "Pause" : "Start"}
                     </Button>
-                    <Button variant="outline" onClick={() => setClock(0)}>
-                      Reset
-                    </Button>
+                    <Button variant="outline" onClick={() => setClock(0)}>Reset</Button>
                   </div>
                 </div>
               </div>
@@ -947,38 +828,26 @@ function applyManualParse(sourceText = manualText) {
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div
                       style={{
-                        width: 52,
-                        height: 52,
-                        borderRadius: "50%",
-                        background: "#0f172a",
-                        color: "#fff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: 800,
-                        fontSize: 18,
+                        width: 52, height: 52, borderRadius: "50%",
+                        background: "#0f172a", color: "#fff",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontWeight: 800, fontSize: 18,
                       }}
                     >
                       {selectedPlayer.no}
                     </div>
                     <div>
                       <div style={{ fontWeight: 700 }}>{selectedPlayer.name}</div>
-                      <div style={{ fontSize: 14, color: "#64748b" }}>
-                        {selectedPlayer.pos || "No position set"}
-                      </div>
+                      <div style={{ fontSize: 14, color: "#64748b" }}>{selectedPlayer.pos || "No position set"}</div>
                     </div>
                   </div>
-
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
                     {ACTIONS.map((a) => (
                       <div
                         key={a.key}
                         style={{
-                          border: "1px solid #e2e8f0",
-                          borderRadius: 14,
-                          background: "#f8fafc",
-                          padding: 10,
-                          textAlign: "center",
+                          border: "1px solid #e2e8f0", borderRadius: 14,
+                          background: "#f8fafc", padding: 10, textAlign: "center",
                         }}
                       >
                         <div style={{ fontSize: 18 }}>{a.icon}</div>
@@ -993,11 +862,8 @@ function applyManualParse(sourceText = manualText) {
               ) : (
                 <div
                   style={{
-                    border: "1px dashed #cbd5e1",
-                    borderRadius: 16,
-                    padding: 32,
-                    textAlign: "center",
-                    color: "#64748b",
+                    border: "1px dashed #cbd5e1", borderRadius: 16,
+                    padding: 32, textAlign: "center", color: "#64748b",
                   }}
                 >
                   Tap a player on the pitch.
@@ -1007,11 +873,12 @@ function applyManualParse(sourceText = manualText) {
           </Card>
         </div>
 
+        {/* ── Tab navigation ──────────────────────────────────────────────── */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {[
-            { key: "extract", label: "1. Extract" },
-            { key: "players", label: "2. Players" },
-            { key: "pitch", label: "3. Pitch" },
+            { key: "extract",  label: "1. Extract"  },
+            { key: "players",  label: "2. Players"  },
+            { key: "pitch",    label: "3. Pitch"    },
             { key: "database", label: "4. Database" },
           ].map((tab) => (
             <Button
@@ -1024,190 +891,164 @@ function applyManualParse(sourceText = manualText) {
           ))}
         </div>
 
+        {/* ═══════════════════════════════════════════════════════════════════
+            FIX #1 & #2 — Extract tab is now a proper self-contained block.
+            Players tab is no longer nested inside Extract.
+        ═══════════════════════════════════════════════════════════════════ */}
+
+        {/* ── Tab: Extract ────────────────────────────────────────────────── */}
         {activeTab === "extract" && (
-          <div
-            style={{
-              display: "grid",
-              gap: 16,
-              gridTemplateColumns: "minmax(320px, 0.9fr) minmax(320px, 1.1fr)",
-            }}
-          >
-            <Card>
-              <CardHeader>
-                <div style={{ fontSize: 22, fontWeight: 700 }}>Upload Team Sheet</div>
-              </CardHeader>
-              <CardContent>
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImageUpload} />
+          <>
+            {isMobile && (
+              <div style={{ display: "flex", gap: 8 }}>
+                <MiniTabButton active={extractMobileTab === "photo"} onClick={() => setExtractMobileTab("photo")}>Photo</MiniTabButton>
+                <MiniTabButton active={extractMobileTab === "ocr"}   onClick={() => setExtractMobileTab("ocr")}>OCR</MiniTabButton>
+                <MiniTabButton active={extractMobileTab === "fix"}   onClick={() => setExtractMobileTab("fix")}>Fix</MiniTabButton>
+              </div>
+            )}
 
-                <div
-                  style={{
-                    display: "grid",
-                    gap: 12,
-                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                    marginBottom: 16,
-                  }}
-                >
-                  <Button onClick={() => fileRef.current?.click()}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      <Upload size={16} /> Upload Image
-                    </span>
-                  </Button>
+            {(!isMobile || extractMobileTab === "photo") && (
+              <Card>
+                <CardHeader>
+                  <div style={{ fontSize: 22, fontWeight: 700 }}>Upload Team Sheet</div>
+                </CardHeader>
+                <CardContent>
+                  <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImageUpload} />
 
-                  <Button
-                  variant="outline"
-                  onClick={runOCR}
-                  disabled={!imageDataUrl || isExtracting}
-                >
-  <ScanText className="mr-2 h-4 w-4" />
-  {isExtracting ? "Extracting..." : "Extract Players"}
-</Button>
-
-                  <Button variant="outline" onClick={loadDemoText}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      <Users size={16} /> Load Demo Text
-                    </span>
-                  </Button>
-                </div>
-
-                {ocrError ? (
                   <div
                     style={{
-                      border: "1px solid #fde68a",
-                      background: "#fefce8",
-                      color: "#854d0e",
-                      borderRadius: 16,
-                      padding: 14,
+                      display: "grid",
+                      gap: 12,
+                      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
                       marginBottom: 16,
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                      <AlertTriangle size={16} style={{ marginTop: 2 }} />
-                      <span>{ocrError}</span>
-                    </div>
-                  </div>
-                ) : null}
-
-                <div
-                  style={{
-                    border: "1px solid #e2e8f0",
-                    background: "#f8fafc",
-                    borderRadius: 16,
-                    padding: 12,
-                    minHeight: 320,
-                  }}
-                >
-                  {imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt="Team sheet"
-                      style={{
-                        width: "100%",
-                        maxHeight: 520,
-                        objectFit: "contain",
-                        borderRadius: 12,
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        minHeight: 260,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        border: "1px dashed #cbd5e1",
-                        borderRadius: 12,
-                        color: "#64748b",
-                      }}
-                    >
-                      Team sheet preview
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div style={{ fontSize: 22, fontWeight: 700 }}>Paste OCR Text / Manual Fix</div>
-              </CardHeader>
-              <CardContent>
-                <div style={{ display: "grid", gap: 16 }}>
-                  <div>
-                    <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 600 }}>OCR Output</div>
-                    <Textarea
-                      value={ocrText}
-                      onChange={(e) => setOcrText(e.target.value)}
-                      placeholder="Paste OCR output from Google Lens, iPhone Live Text, or another OCR tool."
-                      rows={6}
-                    />
-                  </div>
-
-                  <div>
-                    <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 600 }}>Manual Clean-up Box</div>
-                    <Textarea
-                      value={manualText}
-                      onChange={(e) => setManualText(e.target.value)}
-                      placeholder="Expected pattern: player name on one line, position on the next line."
-                      rows={12}
-                    />
-                  </div>
-
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <Button onClick={() => applyManualParse(manualText)}>
+                    <Button onClick={() => fileRef.current?.click()}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Upload size={16} /> Upload Image</span>
+                    </Button>
+                    <Button variant="outline" onClick={runOCR} disabled={!imageDataUrl || isExtracting}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                        <Users size={16} /> Parse Manual Text
+                        <ScanText size={16} /> {isExtracting ? "Extracting…" : "Extract Players"}
                       </span>
                     </Button>
-
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setManualText(ocrText);
-                        setOcrError("");
-                      }}
-                    >
-                      Use OCR Text
-                    </Button>
-
-                    <Button variant="outline" onClick={() => applyManualParse(ocrText || manualText)}>
-                      Parse Best Available
+                    <Button variant="outline" onClick={loadDemoText}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Users size={16} /> Load Demo Text</span>
                     </Button>
                   </div>
+
+                  {ocrError && (
+                    <div
+                      style={{
+                        border: "1px solid #fde68a", background: "#fefce8",
+                        color: "#854d0e", borderRadius: 16, padding: 14, marginBottom: 16,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                        <AlertTriangle size={16} style={{ marginTop: 2 }} />
+                        <span>{ocrError}</span>
+                      </div>
+                    </div>
+                  )}
 
                   <div
                     style={{
-                      border: "1px solid #bbf7d0",
-                      background: "#f0fdf4",
-                      color: "#166534",
-                      borderRadius: 16,
-                      padding: 14,
+                      border: "1px solid #e2e8f0", background: "#f8fafc",
+                      borderRadius: 16, padding: 12, minHeight: 320,
                     }}
                   >
-                    Best workflow on your phone: photo team sheet → copy text with Google Lens / Live Text → paste here → parse → fix any bad names in Players tab.
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt="Team sheet"
+                        style={{ width: "100%", maxHeight: 520, objectFit: "contain", borderRadius: 12 }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          minHeight: 260, display: "flex", alignItems: "center",
+                          justifyContent: "center", border: "1px dashed #cbd5e1",
+                          borderRadius: 12, color: "#64748b",
+                        }}
+                      >
+                        Team sheet preview
+                      </div>
+                    )}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {(!isMobile || extractMobileTab === "ocr" || extractMobileTab === "fix") && (
+              <Card>
+                <CardHeader>
+                  <div style={{ fontSize: 22, fontWeight: 700 }}>Paste OCR Text / Manual Fix</div>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ display: "grid", gap: 16 }}>
+
+                    {(!isMobile || extractMobileTab === "ocr") && (
+                      <div>
+                        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 600 }}>OCR Output</div>
+                        <Textarea
+                          value={ocrText}
+                          onChange={(e) => setOcrText(e.target.value)}
+                          placeholder="Paste OCR output from Google Lens or another OCR tool."
+                          rows={6}
+                        />
+                      </div>
+                    )}
+
+                    {(!isMobile || extractMobileTab === "fix") && (
+                      <>
+                        <div>
+                          <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 600 }}>Manual Clean-up Box</div>
+                          <Textarea
+                            value={manualText}
+                            onChange={(e) => setManualText(e.target.value)}
+                            placeholder="Player name on one line, position on the next line."
+                            rows={12}
+                          />
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <Button onClick={() => applyManualParse(manualText)}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Users size={16} /> Parse Manual Text</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => { setManualText(ocrText); setOcrError(""); }}
+                          >
+                            Use OCR Text
+                          </Button>
+                          <Button variant="outline" onClick={() => applyManualParse(ocrText || manualText)}>
+                            Parse Best Available
+                          </Button>
+                        </div>
+                        <div
+                          style={{
+                            border: "1px solid #bbf7d0", background: "#f0fdf4",
+                            color: "#166534", borderRadius: 16, padding: 14,
+                          }}
+                        >
+                          Best workflow on your phone: Photo team sheet → copy text → paste here → parse → fix names.
+                        </div>
+                      </>
+                    )}
+
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
 
+        {/* ── Tab: Players ─────────────────────────────────────────────────── */}
         {activeTab === "players" && (
           <Card>
             <CardHeader>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 12,
-                  flexWrap: "wrap",
-                }}
-              >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <div style={{ fontSize: 22, fontWeight: 700 }}>Player List</div>
                 <Button onClick={addBlankPlayer}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <Plus size={16} /> Add Player
-                  </span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Plus size={16} /> Add Player</span>
                 </Button>
               </div>
             </CardHeader>
@@ -1217,24 +1058,17 @@ function applyManualParse(sourceText = manualText) {
                   <div
                     key={p.id}
                     style={{
-                      display: "grid",
-                      gap: 10,
+                      display: "grid", gap: 10,
                       gridTemplateColumns: "80px 1fr 140px 100px 80px",
-                      border: "1px solid #e2e8f0",
-                      background: "#ffffff",
-                      borderRadius: 16,
-                      padding: 12,
+                      border: "1px solid #e2e8f0", background: "#ffffff",
+                      borderRadius: 16, padding: 12,
                     }}
                   >
-                    <Input value={p.no} onChange={(e) => updatePlayer(p.id, { no: e.target.value })} placeholder="No" />
-                    <Input value={p.name} onChange={(e) => updatePlayer(p.id, { name: e.target.value })} placeholder="Player name" />
-                    <Input value={p.pos} onChange={(e) => updatePlayer(p.id, { pos: e.target.value.toUpperCase() })} placeholder="Pos" />
-                    <Button variant="outline" onClick={() => setEditingPlayer(p)}>
-                      Edit
-                    </Button>
-                    <Button variant="danger" onClick={() => removePlayer(p.id)}>
-                      <Trash2 size={16} />
-                    </Button>
+                    <Input value={p.no}   onChange={(e) => updatePlayer(p.id, { no: e.target.value })}                        placeholder="No"          />
+                    <Input value={p.name} onChange={(e) => updatePlayer(p.id, { name: e.target.value })}                      placeholder="Player name" />
+                    <Input value={p.pos}  onChange={(e) => updatePlayer(p.id, { pos: e.target.value.toUpperCase() })}          placeholder="Pos"         />
+                    <Button variant="outline" onClick={() => setEditingPlayer(p)}>Edit</Button>
+                    <Button variant="danger"  onClick={() => removePlayer(p.id)}><Trash2 size={16} /></Button>
                   </div>
                 ))}
               </div>
@@ -1242,94 +1076,52 @@ function applyManualParse(sourceText = manualText) {
           </Card>
         )}
 
+        {/* ── Tab: Pitch ───────────────────────────────────────────────────── */}
         {activeTab === "pitch" && (
-  <div
-    style={{
-      display: "grid",
-      gap: 16,
-      gridTemplateColumns: isMobile
-        ? "1fr"
-        : "minmax(0, 1.15fr) minmax(320px, 0.85fr)",
-    }}
-  >
+          <div
+            style={{
+              display: "grid", gap: 16,
+              gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.15fr) minmax(320px, 0.85fr)",
+            }}
+          >
             <Card>
               <CardHeader>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 12,
-                    flexWrap: "wrap",
-                  }}
-                >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <div style={{ fontSize: 22, fontWeight: 700 }}>Pitch Interface</div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <Button variant="outline" onClick={undoLastEvent}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                        <RotateCcw size={16} /> Undo
-                      </span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><RotateCcw size={16} /> Undo</span>
                     </Button>
-                    <Button variant="outline" onClick={resetMatch}>
-                      Clear Match
-                    </Button>
+                    <Button variant="outline" onClick={resetMatch}>Clear Match</Button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Pitch */}
                 <div
                   style={{
-                    position: "relative",
-                    margin: "0 auto",
-                    width: "100%",
-                    maxWidth: isMobile ? 320 : 420,
-                    aspectRatio: "0.72 / 1",
-                    overflow: "hidden",
-                    borderRadius: 28,
-                    border: "4px solid #ffffff",
-                    background: "#047857",
-                    boxShadow: "inset 0 0 20px rgba(0,0,0,0.12)",
+                    position: "relative", margin: "0 auto",
+                    width: "100%", maxWidth: isMobile ? 320 : 420,
+                    aspectRatio: "0.72 / 1", overflow: "hidden",
+                    borderRadius: 28, border: "4px solid #ffffff",
+                    background: "#047857", boxShadow: "inset 0 0 20px rgba(0,0,0,0.12)",
                   }}
                 >
+                  <div style={{ position: "absolute", inset: 12, borderRadius: 22, border: "2px solid rgba(255,255,255,0.8)" }} />
                   <div
                     style={{
-                      position: "absolute",
-                      inset: 12,
-                      borderRadius: 22,
-                      border: "2px solid rgba(255,255,255,0.8)",
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "50%",
-                      top: "50%",
-                      width: 96,
-                      height: 96,
+                      position: "absolute", left: "50%", top: "50%",
+                      width: 96, height: 96,
                       transform: "translate(-50%, -50%)",
-                      borderRadius: "50%",
-                      border: "2px solid rgba(255,255,255,0.8)",
+                      borderRadius: "50%", border: "2px solid rgba(255,255,255,0.8)",
                     }}
                   />
+                  <div style={{ position: "absolute", left: 0, right: 0, top: "50%", borderTop: "2px solid rgba(255,255,255,0.8)" }} />
                   <div
                     style={{
-                      position: "absolute",
-                      left: 0,
-                      right: 0,
-                      top: "50%",
-                      borderTop: "2px solid rgba(255,255,255,0.8)",
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "50%",
-                      top: 12,
-                      width: 160,
-                      height: 64,
-                      transform: "translateX(-50%)",
-                      borderBottomLeftRadius: 16,
-                      borderBottomRightRadius: 16,
+                      position: "absolute", left: "50%", top: 12,
+                      width: 160, height: 64, transform: "translateX(-50%)",
+                      borderBottomLeftRadius: 16, borderBottomRightRadius: 16,
                       borderLeft: "2px solid rgba(255,255,255,0.8)",
                       borderRight: "2px solid rgba(255,255,255,0.8)",
                       borderBottom: "2px solid rgba(255,255,255,0.8)",
@@ -1337,14 +1129,9 @@ function applyManualParse(sourceText = manualText) {
                   />
                   <div
                     style={{
-                      position: "absolute",
-                      left: "50%",
-                      bottom: 12,
-                      width: 160,
-                      height: 64,
-                      transform: "translateX(-50%)",
-                      borderTopLeftRadius: 16,
-                      borderTopRightRadius: 16,
+                      position: "absolute", left: "50%", bottom: 12,
+                      width: 160, height: 64, transform: "translateX(-50%)",
+                      borderTopLeftRadius: 16, borderTopRightRadius: 16,
                       borderLeft: "2px solid rgba(255,255,255,0.8)",
                       borderRight: "2px solid rgba(255,255,255,0.8)",
                       borderTop: "2px solid rgba(255,255,255,0.8)",
@@ -1360,37 +1147,27 @@ function applyManualParse(sourceText = manualText) {
                         onClick={() => setSelectedPlayerId(p.id)}
                         style={{
                           position: "absolute",
-                          left: `${p.x}%`,
-                          top: `${p.y}%`,
+                          left: `${p.x}%`, top: `${p.y}%`,
                           transform: "translate(-50%, -50%)",
-                          width: isMobile ? 46 : 56,
-                          height: isMobile ? 46 : 56,
+                          width: isMobile ? 46 : 56, height: isMobile ? 46 : 56,
                           borderRadius: "50%",
                           border: selectedPlayerId === p.id ? "2px solid #0f172a" : "2px solid #ffffff",
                           background: selectedPlayerId === p.id ? "#fcd34d" : "#ffffff",
                           color: "#0f172a",
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
-                          cursor: "pointer",
+                          display: "flex", flexDirection: "column",
+                          alignItems: "center", justifyContent: "center",
+                          boxShadow: "0 8px 18px rgba(0,0,0,0.18)", cursor: "pointer",
                         }}
                       >
-                        <span style={{ fontSize: isMobile ? 12 : 14, fontWeight: 800, lineHeight: 1 }}>
-  {p.no}
-</span>
+                        <span style={{ fontSize: isMobile ? 12 : 14, fontWeight: 800, lineHeight: 1 }}>{p.no}</span>
                         <span
                           style={{
                             maxWidth: isMobile ? 34 : 42,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            fontSize: isMobile ? 8 : 9,
-                            lineHeight: 1,
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            fontSize: isMobile ? 8 : 9, lineHeight: 1,
                           }}
                         >
-                          {((p.name || "").split(" ")[0]).slice(0,8)}
+                          {((p.name || "").split(" ")[0]).slice(0, 8)}
                         </span>
                         {score !== 0 && (
                           <span style={{ fontSize: 9, lineHeight: 1 }}>{score > 0 ? `+${score}` : score}</span>
@@ -1400,31 +1177,20 @@ function applyManualParse(sourceText = manualText) {
                   })}
                 </div>
 
+                {/* Action buttons */}
                 <div
                   style={{
                     marginTop: 16,
                     display: "grid",
-                    gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
+                    gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
                     gap: 8,
                   }}
                 >
                   {actionButtons.map((b) => {
                     const Icon = b.icon;
                     return (
-                      <Button
-                        key={b.key}
-                        disabled={!selectedPlayerId}
-                        variant="outline"
-                        onClick={() => logAction(b.key)}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
-                        >
+                      <Button key={b.key} disabled={!selectedPlayerId} variant="outline" onClick={() => logAction(b.key)}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                           <Icon size={16} />
                           <span style={{ fontSize: 12 }}>{b.label}</span>
                         </div>
@@ -1435,54 +1201,33 @@ function applyManualParse(sourceText = manualText) {
               </CardContent>
             </Card>
 
-            <div
-  style={{
-    display: "grid",
-    gap: 16,
-    width: "100%",
-  }}
->
+            <div style={{ display: "grid", gap: 16, width: "100%" }}>
               <Card>
-                <CardHeader>
-                  <div style={{ fontSize: 22, fontWeight: 700 }}>Leaderboard</div>
-                </CardHeader>
+                <CardHeader><div style={{ fontSize: 22, fontWeight: 700 }}>Leaderboard</div></CardHeader>
                 <CardContent>
                   <div style={{ display: "grid", gap: 8 }}>
                     {leaderboard.slice(0, 8).map((p, idx) => (
                       <div
                         key={p.id}
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          border: "1px solid #e2e8f0",
-                          background: "#f8fafc",
-                          borderRadius: 14,
-                          padding: 12,
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          gap: 12, border: "1px solid #e2e8f0", background: "#f8fafc",
+                          borderRadius: 14, padding: 12,
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                           <div
                             style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: "50%",
-                              background: "#0f172a",
-                              color: "#ffffff",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontWeight: 800,
-                              fontSize: 14,
+                              width: 32, height: 32, borderRadius: "50%",
+                              background: "#0f172a", color: "#ffffff",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontWeight: 800, fontSize: 14,
                             }}
                           >
                             {idx + 1}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 700 }}>
-  {p.no}. {p.name}
-</div>
+                            <div style={{ fontWeight: 700 }}>{p.no}. {p.name}</div>
                             <div style={{ fontSize: 12, color: "#64748b" }}>{p.pos}</div>
                           </div>
                         </div>
@@ -1494,23 +1239,12 @@ function applyManualParse(sourceText = manualText) {
               </Card>
 
               <Card>
-                <CardHeader>
-                  <div style={{ fontSize: 22, fontWeight: 700 }}>Live Event Log</div>
-                </CardHeader>
+                <CardHeader><div style={{ fontSize: 22, fontWeight: 700 }}>Live Event Log</div></CardHeader>
                 <CardContent>
-                  <div
-                    style={{
-                      maxHeight: 360,
-                      overflow: "auto",
-                      display: "grid",
-                      gap: 8,
-                      paddingRight: 4,
-                    }}
-                  >
+                  <div style={{ maxHeight: 360, overflow: "auto", display: "grid", gap: 8, paddingRight: 4 }}>
                     {events.length === 0 && (
                       <div style={{ fontSize: 14, color: "#64748b" }}>No events logged yet.</div>
                     )}
-
                     {events.map((e) => {
                       const p = players.find((x) => x.id === e.playerId);
                       const a = ACTIONS.find((x) => x.key === e.action);
@@ -1518,23 +1252,14 @@ function applyManualParse(sourceText = manualText) {
                         <div
                           key={e.id}
                           style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: 12,
-                            border: "1px solid #e2e8f0",
-                            background: "#ffffff",
-                            borderRadius: 14,
-                            padding: 12,
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            gap: 12, border: "1px solid #e2e8f0", background: "#ffffff",
+                            borderRadius: 14, padding: 12,
                           }}
                         >
                           <div>
-                            <div style={{ fontWeight: 700 }}>
-                              {a?.icon} {p?.no}. {p?.name}
-                            </div>
-                            <div style={{ fontSize: 12, color: "#64748b" }}>
-                              {a?.label} · {p?.pos}
-                            </div>
+                            <div style={{ fontWeight: 700 }}>{a?.icon} {p?.no}. {p?.name}</div>
+                            <div style={{ fontSize: 12, color: "#64748b" }}>{a?.label} · {p?.pos}</div>
                           </div>
                           <Badge>{formatClock(e.t)}</Badge>
                         </div>
@@ -1547,95 +1272,50 @@ function applyManualParse(sourceText = manualText) {
           </div>
         )}
 
+        {/* ── Tab: Database ────────────────────────────────────────────────── */}
         {activeTab === "database" && (
           <div
             style={{
-              display: "grid",
-              gap: 16,
-              gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, 0.9fr)",
+              display: "grid", gap: 16,
+              gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.1fr) minmax(320px, 0.9fr)",
             }}
           >
             <Card>
-              <CardHeader>
-                <div style={{ fontSize: 22, fontWeight: 700 }}>Player Database / Saved Matches</div>
-              </CardHeader>
+              <CardHeader><div style={{ fontSize: 22, fontWeight: 700 }}>Player Database / Saved Matches</div></CardHeader>
               <CardContent>
                 <div style={{ display: "grid", gap: 16 }}>
                   {db.length === 0 && (
                     <div
                       style={{
-                        border: "1px dashed #cbd5e1",
-                        borderRadius: 16,
-                        padding: 32,
-                        textAlign: "center",
-                        color: "#64748b",
+                        border: "1px dashed #cbd5e1", borderRadius: 16,
+                        padding: 32, textAlign: "center", color: "#64748b",
                       }}
                     >
                       Save a match and it will appear here.
                     </div>
                   )}
-
                   {db.map((m) => (
-                    <div
-                      key={m.id}
-                      style={{
-                        border: "1px solid #e2e8f0",
-                        background: "#ffffff",
-                        borderRadius: 18,
-                        padding: 16,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                          gap: 12,
-                          flexWrap: "wrap",
-                        }}
-                      >
+                    <div key={m.id} style={{ border: "1px solid #e2e8f0", background: "#ffffff", borderRadius: 18, padding: 16 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
                         <div>
-                          <div style={{ fontSize: 18, fontWeight: 700 }}>
-                            {m.matchName || "Untitled Match"}
-                          </div>
+                          <div style={{ fontSize: 18, fontWeight: 700 }}>{m.matchName || "Untitled Match"}</div>
                           <div style={{ fontSize: 14, color: "#64748b" }}>
-                            {m.opponent ? `vs ${m.opponent}` : "No opponent set"} ·{" "}
-                            {new Date(m.playedAt).toLocaleString()}
+                            {m.opponent ? `vs ${m.opponent}` : "No opponent set"} · {new Date(m.playedAt).toLocaleString()}
                           </div>
                         </div>
                         <Badge>{formatClock(m.durationSeconds || 0)}</Badge>
                       </div>
-
                       <div
                         style={{
-                          marginTop: 16,
-                          display: "grid",
-                          gap: 8,
+                          marginTop: 16, display: "grid", gap: 8,
                           gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                         }}
                       >
                         {m.summary.slice(0, 9).map((p) => (
-                          <div
-                            key={p.playerId}
-                            style={{
-                              border: "1px solid #e2e8f0",
-                              background: "#f8fafc",
-                              borderRadius: 14,
-                              padding: 12,
-                            }}
-                          >
-                            <div style={{ fontWeight: 700 }}>
-                              {p.no}. {p.name}
-                            </div>
+                          <div key={p.playerId} style={{ border: "1px solid #e2e8f0", background: "#f8fafc", borderRadius: 14, padding: 12 }}>
+                            <div style={{ fontWeight: 700 }}>{p.no}. {p.name}</div>
                             <div style={{ fontSize: 12, color: "#64748b" }}>{p.pos}</div>
-                            <div
-                              style={{
-                                marginTop: 8,
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                              }}
-                            >
+                            <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                               <span style={{ fontSize: 14 }}>Score</span>
                               <Badge>{p.score}</Badge>
                             </div>
@@ -1649,38 +1329,24 @@ function applyManualParse(sourceText = manualText) {
             </Card>
 
             <Card>
-              <CardHeader>
-                <div style={{ fontSize: 22, fontWeight: 700 }}>Parser Self-Tests</div>
-              </CardHeader>
+              <CardHeader><div style={{ fontSize: 22, fontWeight: 700 }}>Parser Self-Tests</div></CardHeader>
               <CardContent>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
                   {tests.passed === tests.total ? (
-                    <Badge>
-                      <CheckCircle2 size={14} /> {tests.passed}/{tests.total} passed
-                    </Badge>
+                    <Badge><CheckCircle2 size={14} /> {tests.passed}/{tests.total} passed</Badge>
                   ) : (
-                    <Badge variant="danger">
-                      <AlertTriangle size={14} /> {tests.passed}/{tests.total} passed
-                    </Badge>
+                    <Badge variant="danger"><AlertTriangle size={14} /> {tests.passed}/{tests.total} passed</Badge>
                   )}
-                  <Button variant="outline" onClick={() => setTests(runParserTests())}>
-                    Run Tests
-                  </Button>
+                  <Button variant="outline" onClick={() => setTests(runParserTests())}>Run Tests</Button>
                 </div>
-
                 <div style={{ display: "grid", gap: 8 }}>
                   {tests.tests.map((test) => (
                     <div
                       key={test.name}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 12,
-                        border: "1px solid #e2e8f0",
-                        background: "#f8fafc",
-                        borderRadius: 14,
-                        padding: 12,
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        gap: 12, border: "1px solid #e2e8f0", background: "#f8fafc",
+                        borderRadius: 14, padding: 12,
                       }}
                     >
                       <span style={{ fontSize: 14 }}>{test.name}</span>
@@ -1692,38 +1358,19 @@ function applyManualParse(sourceText = manualText) {
             </Card>
           </div>
         )}
+
       </div>
 
+      {/* ── Edit player modal ──────────────────────────────────────────────── */}
       <Modal open={!!editingPlayer} onClose={() => setEditingPlayer(null)} title="Edit Player">
         {editingPlayer && (
           <div style={{ display: "grid", gap: 12 }}>
-            <Input
-              value={editingPlayer.no}
-              onChange={(e) => setEditingPlayer({ ...editingPlayer, no: e.target.value })}
-              placeholder="Number"
-            />
-            <Input
-              value={editingPlayer.name}
-              onChange={(e) => setEditingPlayer({ ...editingPlayer, name: e.target.value })}
-              placeholder="Name"
-            />
-            <Input
-              value={editingPlayer.pos}
-              onChange={(e) => setEditingPlayer({ ...editingPlayer, pos: e.target.value.toUpperCase() })}
-              placeholder="Position"
-            />
+            <Input value={editingPlayer.no}   onChange={(e) => setEditingPlayer({ ...editingPlayer, no: e.target.value })}                        placeholder="Number"   />
+            <Input value={editingPlayer.name} onChange={(e) => setEditingPlayer({ ...editingPlayer, name: e.target.value })}                      placeholder="Name"     />
+            <Input value={editingPlayer.pos}  onChange={(e) => setEditingPlayer({ ...editingPlayer, pos: e.target.value.toUpperCase() })}          placeholder="Position" />
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <Button variant="outline" onClick={() => setEditingPlayer(null)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  updatePlayer(editingPlayer.id, editingPlayer);
-                  setEditingPlayer(null);
-                }}
-              >
-                Save
-              </Button>
+              <Button variant="outline" onClick={() => setEditingPlayer(null)}>Cancel</Button>
+              <Button onClick={() => { updatePlayer(editingPlayer.id, editingPlayer); setEditingPlayer(null); }}>Save</Button>
             </div>
           </div>
         )}
