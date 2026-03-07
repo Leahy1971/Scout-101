@@ -490,6 +490,7 @@ export default function App() {
   const [tests, setTests] = useState(runParserTests());
   const [imageDataUrl, setImageDataUrl] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -550,6 +551,15 @@ const leaderboard = useMemo(() => {
       return String(a.name).localeCompare(String(b.name));
     });
 }, [players, events]);
+
+useEffect(() => {
+  function handleResize() {
+    setIsMobile(window.innerWidth <= 768);
+  }
+
+  window.addEventListener("resize", handleResize);
+  return () => window.removeEventListener("resize", handleResize);
+}, []);
 
 async function fileToDataUrl(file) {
   const originalDataUrl = await new Promise((resolve, reject) => {
@@ -1233,13 +1243,15 @@ function applyManualParse(sourceText = manualText) {
         )}
 
         {activeTab === "pitch" && (
-          <div
-            style={{
-              display: "grid",
-              gap: 16,
-              gridTemplateColumns: "minmax(0, 1.15fr) minmax(320px, 0.85fr)",
-            }}
-          >
+  <div
+    style={{
+      display: "grid",
+      gap: 16,
+      gridTemplateColumns: isMobile
+        ? "1fr"
+        : "minmax(0, 1.15fr) minmax(320px, 0.85fr)",
+    }}
+  >
             <Card>
               <CardHeader>
                 <div
@@ -1270,7 +1282,7 @@ function applyManualParse(sourceText = manualText) {
                     position: "relative",
                     margin: "0 auto",
                     width: "100%",
-                    maxWidth: 420,
+                    maxWidth: isMobile ? 320 : 420,
                     aspectRatio: "0.72 / 1",
                     overflow: "hidden",
                     borderRadius: 28,
@@ -1351,8 +1363,8 @@ function applyManualParse(sourceText = manualText) {
                           left: `${p.x}%`,
                           top: `${p.y}%`,
                           transform: "translate(-50%, -50%)",
-                          width: 56,
-                          height: 56,
+                          width: isMobile ? 46 : 56,
+                          height: isMobile ? 46 : 56,
                           borderRadius: "50%",
                           border: selectedPlayerId === p.id ? "2px solid #0f172a" : "2px solid #ffffff",
                           background: selectedPlayerId === p.id ? "#fcd34d" : "#ffffff",
@@ -1365,18 +1377,20 @@ function applyManualParse(sourceText = manualText) {
                           cursor: "pointer",
                         }}
                       >
-                        <span style={{ fontSize: 14, fontWeight: 800, lineHeight: 1 }}>{p.no}</span>
+                        <span style={{ fontSize: isMobile ? 12 : 14, fontWeight: 800, lineHeight: 1 }}>
+  {p.no}
+</span>
                         <span
                           style={{
-                            maxWidth: 42,
+                            maxWidth: isMobile ? 34 : 42,
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
-                            fontSize: 9,
+                            fontSize: isMobile ? 8 : 9,
                             lineHeight: 1,
                           }}
                         >
-                          {(p.name || "").split(" ")[0]}
+                          {((p.name || "").split(" ")[0]).slice(0,8)}
                         </span>
                         {score !== 0 && (
                           <span style={{ fontSize: 9, lineHeight: 1 }}>{score > 0 ? `+${score}` : score}</span>
@@ -1390,7 +1404,7 @@ function applyManualParse(sourceText = manualText) {
                   style={{
                     marginTop: 16,
                     display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
                     gap: 8,
                   }}
                 >
@@ -1421,7 +1435,13 @@ function applyManualParse(sourceText = manualText) {
               </CardContent>
             </Card>
 
-            <div style={{ display: "grid", gap: 16 }}>
+            <div
+  style={{
+    display: "grid",
+    gap: 16,
+    width: "100%",
+  }}
+>
               <Card>
                 <CardHeader>
                   <div style={{ fontSize: 22, fontWeight: 700 }}>Leaderboard</div>
