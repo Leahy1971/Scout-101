@@ -552,12 +552,33 @@ const leaderboard = useMemo(() => {
 }, [players, events]);
 
 async function fileToDataUrl(file) {
-  return await new Promise((resolve, reject) => {
+  const originalDataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+
+  const img = await new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = originalDataUrl;
+  });
+
+  const maxWidth = 1400;
+  const scale = Math.min(1, maxWidth / img.width);
+  const width = Math.round(img.width * scale);
+  const height = Math.round(img.height * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, width, height);
+
+  return canvas.toDataURL("image/jpeg", 0.72);
 }
 
 async function handleImageUpload(e) {
@@ -616,26 +637,31 @@ function parsePlayersJson(text) {
 }
 
 async function runOCR() {
-
   if (!imageDataUrl) {
     setOcrError("Upload image first");
     return;
   }
 
   try {
-
     setIsExtracting(true);
     setOcrError("");
 
     const response = await fetch("/api/extract-team-sheet", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ image: imageDataUrl })
+      body: JSON.stringify({ image: imageDataUrl }),
     });
 
-    const data = await response.json();
+    const rawText = await response.text();
+
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      throw new Error(rawText || "Server returned non-JSON response");
+    }
 
     if (!response.ok) {
       throw new Error(data.detail || data.error || "OCR failed");
@@ -647,24 +673,19 @@ async function runOCR() {
 
     setOcrText(data.result);
 
-    const players = parsePlayersJson(data.result);
+    const parsedPlayers = parsePlayersJson(data.result);
 
-    if (players.length > 0) {
-      setPlayers(sortPlayersByNumber(players));
+    if (parsedPlayers.length > 0) {
+      setPlayers(sortPlayersByNumber(parsedPlayers));
       setActiveTab("players");
     } else {
-      setOcrError("OCR returned text but JSON could not be parsed.");
+      setOcrError("OCR returned text but player JSON could not be parsed.");
     }
-
   } catch (err) {
-
     console.error(err);
     setOcrError(err.message || "OCR failed");
-
   } finally {
-
     setIsExtracting(false);
-
   }
 }
 
