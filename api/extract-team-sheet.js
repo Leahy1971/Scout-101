@@ -1,5 +1,3 @@
-console.log("KEY LOADED:", !!process.env.OPENAI_API_KEY);
-
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
@@ -19,7 +17,14 @@ export default async function handler(req, res) {
 
   try {
 
-    const { image } = req.body;
+    const { image } = req.body || {};
+
+    if (!image) {
+      return res.status(400).json({
+        error: "OCR failed",
+        detail: "No image was sent to the API"
+      });
+    }
 
     const response = await openai.responses.create({
       model: "gpt-4.1-mini",
@@ -29,7 +34,24 @@ export default async function handler(req, res) {
           content: [
             {
               type: "input_text",
-              text: "Extract the football players and positions from this team sheet. Return JSON: players:[{name,pos}]"
+              text: `Extract the football players and positions from this team sheet.
+
+Return strict JSON in this format:
+
+{
+  "players": [
+    { "name": "Player Name", "pos": "Position" }
+  ]
+}
+
+Rules:
+- Ignore coaches
+- Ignore "confirmed"
+- Ignore side notes unless clearly a player
+- Ignore age labels like U13
+- Keep full player names
+- Use positions like GK, CB, RB, LB, CM, CDM, CAM, RW, LW, CF, ST
+- Return JSON only`
             },
             {
               type: "input_image",
@@ -40,12 +62,19 @@ export default async function handler(req, res) {
       ]
     });
 
-    res.status(200).json({
-      result: response.output_text
+    return res.status(200).json({
+      result: response.output_text || ""
     });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "OCR failed" });
+
+    console.error("extract-team-sheet error:", error);
+
+    return res.status(500).json({
+      error: "OCR failed",
+      detail: error?.message || "Unknown server error"
+    });
+
   }
+
 }
