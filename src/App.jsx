@@ -317,7 +317,7 @@ function PlayersTab({ players, addBlankPlayer, updatePlayer, removePlayer, setEd
       <CardContent>
         <div style={{display:"grid",gap:10}}>
           {players.map((p) => (
-            <div key={p.id} style={{display:"grid",gap:8,gridTemplateColumns:"56px 1fr 100px auto auto",alignItems:"center",border:"1px solid #e2e8f0",background:"#fafafa",borderRadius:16,padding:10}}>
+            <div key={p.id} style={{display:"grid",gap:8,gridTemplateColumns:"56px 2fr 70px auto auto",alignItems:"center",border:"1px solid #e2e8f0",background:"#fafafa",borderRadius:16,padding:10}}>
               <Input value={p.no}   onChange={(e)=>updatePlayer(p.id,{no:e.target.value})}                      placeholder="#"    />
               <Input value={p.name} onChange={(e)=>updatePlayer(p.id,{name:e.target.value})}                    placeholder="Name" />
               <Input value={p.pos}  onChange={(e)=>updatePlayer(p.id,{pos:e.target.value.toUpperCase()})}        placeholder="Pos"  />
