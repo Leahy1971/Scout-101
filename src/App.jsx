@@ -75,7 +75,54 @@ const ACTION_BUTTONS = [
 ];
 
 const PERIOD_LABELS = ["1st","2nd","3rd","4th"];
-const DEMO_OCR_TEXT = `No# |, PlayerA |, Position`;
+const DEMO_OCR_TEXT = `1
+James Harper
+GK
+2
+Ryan Mitchell
+RB
+3
+Luca Bianchi
+CB
+4
+Tom Edwards
+CB
+5
+Jake Morrison
+LB
+6
+Danny Walsh
+CDM
+7
+Oliver Hunt
+CM
+8
+Sam Clarke
+CM
+9
+Marcus Webb
+RW
+10
+Tom Leahy
+ST
+11
+Aiden Cole
+LW
+12
+Ben Foster
+GK
+14
+Chris Dunn
+CB
+15
+Tyler Nash
+CM
+16
+Kai Lawson
+ST
+17
+Jordan Price
+LW`;
 const STORAGE_KEY   = "ray-scout-pitch-app-vite-v1";
 const MOBILE_TABS   = [
   { key:"extract",  label:"Extract",  Icon:Camera       },
@@ -253,16 +300,16 @@ function Card({children,style={}}){return <div style={{background:"#fff",border:
 function CardHeader({children}){return <div style={{padding:20,paddingBottom:8}}>{children}</div>;}
 function CardContent({children}){return <div style={{padding:20,paddingTop:8}}>{children}</div>;}
 
-function Modal({open,onClose,title,children,maxWidth=520}) {
+function Modal({open,onClose,title,children,maxWidth=520,fullscreen=false}) {
   if(!open) return null;
   return (
-    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:2000}}>
-      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth,background:"#fff",borderRadius:22,border:"1px solid #e2e8f0",boxShadow:"0 20px 40px rgba(0,0,0,0.18)",maxHeight:"90vh",overflow:"auto"}}>
-        {title&&<div style={{padding:20,borderBottom:"1px solid #e2e8f0",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:"#fff",zIndex:1}}>
-          <div style={{fontSize:20,fontWeight:700}}>{title}</div>
-          <button onClick={onClose} style={{background:"transparent",border:"none",cursor:"pointer"}}><X size={20}/></button>
-        </div>}
-        <div style={{padding:20}}>{children}</div>
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",display:"flex",alignItems:fullscreen?"flex-start":"center",justifyContent:"center",padding:fullscreen?0:16,zIndex:2000,overflowY:"auto"}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:fullscreen?"100%":maxWidth,background:"#fff",borderRadius:fullscreen?0:22,border:fullscreen?"none":"1px solid #e2e8f0",boxShadow:"0 20px 40px rgba(0,0,0,0.18)",minHeight:fullscreen?"100vh":"auto",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"14px 16px",borderBottom:"1px solid #e2e8f0",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:"#fff",zIndex:1,flexShrink:0}}>
+          <div style={{fontSize:18,fontWeight:700}}>{title||""}</div>
+          <button onClick={onClose} style={{background:"transparent",border:"none",cursor:"pointer",padding:4}}><X size={22}/></button>
+        </div>
+        <div style={{padding:fullscreen?14:20,flex:1,overflowY:"auto"}}>{children}</div>
       </div>
     </div>
   );
@@ -299,14 +346,26 @@ function SubTabs({tabs,active,setActive}) {
 
 // ─── Clock Panel ──────────────────────────────────────────────────────────────
 
-function ClockPanel({isMobile,numPeriods,setNumPeriods,periodMins,setPeriodMins,currentPeriod,setCurrentPeriod,clock,setClock,timerOn,setTimerOn,periodLengthSecs,matchStarted,setMatchStarted}) {
+function ClockPanel({isMobile,numPeriods,setNumPeriods,periodMins,setPeriodMins,currentPeriod,setCurrentPeriod,clock,setClock,timerOn,setTimerOn,periodLengthSecs,matchStarted,setMatchStarted,timerDeadline}) {
   const remaining=clock;
   const isLastPeriod=currentPeriod>=numPeriods;
   const periodLabel=PERIOD_LABELS[currentPeriod-1]||`P${currentPeriod}`;
   const clockColour=remaining<=60&&matchStarted?"#dc2626":"#0f172a";
-  function handleStart(){if(!matchStarted){setClock(periodLengthSecs);setMatchStarted(true);}setTimerOn(s=>!s);}
-  function handleNextPeriod(){if(isLastPeriod)return;setCurrentPeriod(p=>p+1);setClock(periodLengthSecs);setTimerOn(false);}
-  function handleReset(){setTimerOn(false);setMatchStarted(false);setCurrentPeriod(1);setClock(periodLengthSecs);}
+  function handleStart(){
+    if(!matchStarted){setClock(periodLengthSecs);setMatchStarted(true);}
+    // On resume, clear old deadline so it recalculates from current clock
+    if(timerDeadline) timerDeadline.current = null;
+    setTimerOn(s=>!s);
+  }
+  function handleNextPeriod(){
+    if(isLastPeriod)return;
+    if(timerDeadline) timerDeadline.current = null;
+    setCurrentPeriod(p=>p+1);setClock(periodLengthSecs);setTimerOn(false);
+  }
+  function handleReset(){
+    if(timerDeadline) timerDeadline.current = null;
+    setTimerOn(false);setMatchStarted(false);setCurrentPeriod(1);setClock(periodLengthSecs);
+  }
   const pips=Array.from({length:numPeriods},(_,i)=>{
     const done=i+1<currentPeriod,active=i+1===currentPeriod;
     return <div key={i} style={{width:10,height:10,borderRadius:"50%",background:done?"#0f172a":active?(remaining<=60&&matchStarted?"#dc2626":"#3b82f6"):"#cbd5e1",border:active?"2px solid #0f172a":"2px solid transparent",transition:"background 0.3s"}}/>;
@@ -351,7 +410,7 @@ function ClockPanel({isMobile,numPeriods,setNumPeriods,periodMins,setPeriodMins,
 
 // ─── Pre-Match Setup ──────────────────────────────────────────────────────────
 
-function PreMatchSetup({players,onConfirm}) {
+function PreMatchSetup({players,onConfirm,isMobile}) {
   const [formation,setFormation]=useState("4-3-3");
   const slots=FORMATIONS[formation];
   const [lineup,setLineup]=useState(()=>Array(slots.length).fill(null));
@@ -366,76 +425,149 @@ function PreMatchSetup({players,onConfirm}) {
     onConfirm({formation,lineupData});
   }
   const filledCount=lineup.filter(Boolean).length;
+
+  // Pitch element — shared between mobile and desktop
+  const pitchEl = (
+    <div style={{position:"relative",width:"100%",maxWidth:isMobile?320:380,aspectRatio:"0.72/1",background:"#047857",borderRadius:20,border:"3px solid #fff",boxShadow:"0 4px 24px rgba(0,0,0,0.15)",overflow:"hidden",margin:"0 auto"}}>
+      <div style={{position:"absolute",inset:10,borderRadius:14,border:"2px solid rgba(255,255,255,0.5)"}}/>
+      <div style={{position:"absolute",left:0,right:0,top:"50%",borderTop:"2px solid rgba(255,255,255,0.5)"}}/>
+      <div style={{position:"absolute",left:"50%",top:"50%",width:70,height:70,transform:"translate(-50%,-50%)",borderRadius:"50%",border:"2px solid rgba(255,255,255,0.5)"}}/>
+      <div style={{position:"absolute",left:"50%",top:10,width:130,height:48,transform:"translateX(-50%)",border:"2px solid rgba(255,255,255,0.5)",borderTop:"none",borderRadius:"0 0 10px 10px"}}/>
+      <div style={{position:"absolute",left:"50%",bottom:10,width:130,height:48,transform:"translateX(-50%)",border:"2px solid rgba(255,255,255,0.5)",borderBottom:"none",borderRadius:"10px 10px 0 0"}}/>
+      {slots.map((slot,idx)=>{
+        const pid=lineup[idx];const player=pid?players.find(p=>p.id===pid):null;
+        const tokenSize=isMobile?50:44;
+        return (
+          <div key={idx} style={{position:"absolute",left:`${slot.x}%`,top:`${slot.y}%`,transform:"translate(-50%,-50%)",zIndex:2}}>
+            <select value={pid||""} onChange={e=>assignPlayer(idx,e.target.value||null)} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",zIndex:3,fontSize:16}}>
+              <option value="">— empty —</option>
+              {player&&<option key={player.id} value={player.id}>{player.no}. {player.name}</option>}
+              {benchPlayers.map(p=><option key={p.id} value={p.id}>{p.no}. {p.name} ({p.pos||"?"})</option>)}
+            </select>
+            <div style={{width:tokenSize,height:tokenSize,borderRadius:"50%",background:player?"#fff":"rgba(255,255,255,0.18)",border:player?"2px solid #0f172a":"2px dashed rgba(255,255,255,0.7)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",pointerEvents:"none"}}>
+              {player?(
+                <>
+                  <span style={{fontSize:isMobile?13:11,fontWeight:800,lineHeight:1,color:"#0f172a"}}>{player.no}</span>
+                  <span style={{fontSize:isMobile?8:7,lineHeight:1.2,color:"#64748b",maxWidth:tokenSize-8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{player.name.split(" ")[0]}</span>
+                </>
+              ):(
+                <span style={{fontSize:isMobile?9:8,color:"rgba(255,255,255,0.9)",fontWeight:700,textAlign:"center",lineHeight:1.2,padding:"0 3px"}}>{slot.pos}</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // Starting XI slot list
+  const startingXIEl = (
+    <div style={{display:"grid",gap:4}}>
+      {slots.map((slot,idx)=>{
+        const pid=lineup[idx];const player=pid?players.find(p=>p.id===pid):null;
+        return (
+          <div key={idx} style={{display:"flex",alignItems:"center",gap:7,padding:"7px 10px",border:"1px solid",borderColor:player?"#bbf7d0":"#e2e8f0",borderRadius:10,background:player?"#f0fdf4":"#fafafa"}}>
+            <span style={{fontSize:10,fontWeight:700,color:"#64748b",width:36,flexShrink:0}}>{slot.pos}</span>
+            {player?(
+              <>
+                <span style={{flex:1,fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{player.no}. {player.name}</span>
+                <button onClick={()=>assignPlayer(idx,null)} style={{background:"none",border:"none",cursor:"pointer",color:"#94a3b8",padding:2,flexShrink:0}}><X size={12}/></button>
+              </>
+            ):(
+              <span style={{flex:1,fontSize:12,color:"#94a3b8"}}>— tap slot on pitch —</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // Bench list
+  const benchEl = (
+    <div style={{display:"grid",gap:5}}>
+      {benchPlayers.length===0&&<div style={{fontSize:12,color:"#94a3b8",padding:10,textAlign:"center",border:"1px dashed #e2e8f0",borderRadius:10}}>All players assigned ✓</div>}
+      {benchPlayers.map(p=>(
+        <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",border:"1px solid #e2e8f0",borderRadius:10,background:"#f8fafc"}}>
+          <div style={{width:28,height:28,borderRadius:"50%",background:"#cbd5e1",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,flexShrink:0}}>{p.no}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+            <div style={{fontSize:11,color:"#64748b"}}>{p.pos||"—"}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div style={{display:"grid",gap:16}}>
+
+      {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
         <div>
-          <div style={{fontSize:22,fontWeight:800}}>Pre-Match Setup</div>
-          <div style={{fontSize:13,color:"#64748b",marginTop:2}}>Choose your formation and assign players to slots</div>
+          <div style={{fontSize:isMobile?20:22,fontWeight:800}}>Pre-Match Setup</div>
+          <div style={{fontSize:13,color:"#64748b",marginTop:2}}>{filledCount}/{slots.length} players assigned</div>
         </div>
         <Button onClick={handleConfirm}><ClipboardCheck size={16}/> Start Match</Button>
       </div>
-      <div style={{marginBottom:4}}>
+
+      {/* Formation picker */}
+      <div>
         <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Formation</div>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          {FORMATION_NAMES.map(f=><button key={f} onClick={()=>setFormation(f)} style={{padding:"7px 13px",borderRadius:12,border:"1px solid",borderColor:formation===f?"#0f172a":"#cbd5e1",background:formation===f?"#0f172a":"#fff",color:formation===f?"#fff":"#64748b",fontWeight:700,fontSize:13,cursor:"pointer"}}>{f}</button>)}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {FORMATION_NAMES.map(f=>(
+            <button key={f} onClick={()=>setFormation(f)} style={{padding:"7px 12px",borderRadius:12,border:"1px solid",borderColor:formation===f?"#0f172a":"#cbd5e1",background:formation===f?"#0f172a":"#fff",color:formation===f?"#fff":"#64748b",fontWeight:700,fontSize:isMobile?12:13,cursor:"pointer"}}>
+              {f}
+            </button>
+          ))}
         </div>
       </div>
-      <div style={{display:"grid",gap:16,gridTemplateColumns:"minmax(0,1fr) 260px"}}>
-        <div>
-          <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Assign — {filledCount}/{slots.length}</div>
-          <div style={{position:"relative",width:"100%",maxWidth:360,aspectRatio:"0.72/1",background:"#047857",borderRadius:20,border:"3px solid #fff",boxShadow:"0 4px 24px rgba(0,0,0,0.15)",overflow:"hidden",margin:"0 auto"}}>
-            <div style={{position:"absolute",inset:10,borderRadius:14,border:"2px solid rgba(255,255,255,0.5)"}}/>
-            <div style={{position:"absolute",left:0,right:0,top:"50%",borderTop:"2px solid rgba(255,255,255,0.5)"}}/>
-            <div style={{position:"absolute",left:"50%",top:"50%",width:70,height:70,transform:"translate(-50%,-50%)",borderRadius:"50%",border:"2px solid rgba(255,255,255,0.5)"}}/>
-            <div style={{position:"absolute",left:"50%",top:10,width:130,height:48,transform:"translateX(-50%)",border:"2px solid rgba(255,255,255,0.5)",borderTop:"none",borderRadius:"0 0 10px 10px"}}/>
-            <div style={{position:"absolute",left:"50%",bottom:10,width:130,height:48,transform:"translateX(-50%)",border:"2px solid rgba(255,255,255,0.5)",borderBottom:"none",borderRadius:"10px 10px 0 0"}}/>
-            {slots.map((slot,idx)=>{
-              const pid=lineup[idx];const player=pid?players.find(p=>p.id===pid):null;
-              return (
-                <div key={idx} style={{position:"absolute",left:`${slot.x}%`,top:`${slot.y}%`,transform:"translate(-50%,-50%)",zIndex:2}}>
-                  <select value={pid||""} onChange={e=>assignPlayer(idx,e.target.value||null)} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",zIndex:3}}>
-                    <option value="">— empty —</option>
-                    {player&&<option key={player.id} value={player.id}>{player.no}. {player.name}</option>}
-                    {benchPlayers.map(p=><option key={p.id} value={p.id}>{p.no}. {p.name} ({p.pos||"?"})</option>)}
-                  </select>
-                  <div style={{width:44,height:44,borderRadius:"50%",background:player?"#fff":"rgba(255,255,255,0.18)",border:player?"2px solid #0f172a":"2px dashed rgba(255,255,255,0.7)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",pointerEvents:"none"}}>
-                    {player?(<><span style={{fontSize:11,fontWeight:800,lineHeight:1,color:"#0f172a"}}>{player.no}</span><span style={{fontSize:7,lineHeight:1.2,color:"#64748b",maxWidth:38,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{player.name.split(" ")[0]}</span></>):(<span style={{fontSize:8,color:"rgba(255,255,255,0.9)",fontWeight:700,textAlign:"center",lineHeight:1.2,padding:"0 3px"}}>{slot.pos}</span>)}
-                  </div>
-                </div>
-              );
-            })}
+
+      {isMobile ? (
+        /* ── MOBILE: single column stack ── */
+        <>
+          {/* Pitch — full width, big tokens */}
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>
+              Tap a slot to assign a player
+            </div>
+            {pitchEl}
+            <div style={{display:"flex",gap:8,marginTop:12,justifyContent:"center"}}>
+              <Button variant="outline" size="sm" onClick={autoFill}>Auto-fill</Button>
+              <Button variant="outline" size="sm" onClick={clearAll}>Clear</Button>
+            </div>
           </div>
-          <div style={{display:"flex",gap:8,marginTop:10,justifyContent:"center"}}>
-            <Button variant="outline" size="sm" onClick={autoFill}>Auto-fill</Button>
-            <Button variant="outline" size="sm" onClick={clearAll}>Clear</Button>
+
+          {/* Starting XI */}
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Starting XI</div>
+            {startingXIEl}
           </div>
-        </div>
-        <div>
-          <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Bench ({benchPlayers.length})</div>
-          <div style={{display:"grid",gap:5,maxHeight:220,overflow:"auto",marginBottom:12}}>
-            {benchPlayers.length===0&&<div style={{fontSize:12,color:"#94a3b8",padding:10,textAlign:"center",border:"1px dashed #e2e8f0",borderRadius:10}}>All assigned</div>}
-            {benchPlayers.map(p=>(
-              <div key={p.id} style={{display:"flex",alignItems:"center",gap:7,padding:"7px 10px",border:"1px solid #e2e8f0",borderRadius:10,background:"#f8fafc"}}>
-                <div style={{width:24,height:24,borderRadius:"50%",background:"#cbd5e1",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:11,flexShrink:0}}>{p.no}</div>
-                <div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div><div style={{fontSize:10,color:"#64748b"}}>{p.pos||"—"}</div></div>
-              </div>
-            ))}
+
+          {/* Bench */}
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Bench ({benchPlayers.length})</div>
+            {benchEl}
           </div>
-          <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Starting XI</div>
-          <div style={{display:"grid",gap:4,maxHeight:280,overflow:"auto"}}>
-            {slots.map((slot,idx)=>{
-              const pid=lineup[idx];const player=pid?players.find(p=>p.id===pid):null;
-              return (
-                <div key={idx} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 9px",border:"1px solid",borderColor:player?"#bbf7d0":"#e2e8f0",borderRadius:9,background:player?"#f0fdf4":"#fafafa"}}>
-                  <span style={{fontSize:10,fontWeight:700,color:"#64748b",width:32,flexShrink:0}}>{slot.pos}</span>
-                  {player?(<><span style={{flex:1,fontSize:11,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{player.no}. {player.name}</span><button onClick={()=>assignPlayer(idx,null)} style={{background:"none",border:"none",cursor:"pointer",color:"#94a3b8",padding:2}}><X size={11}/></button></>):(<span style={{flex:1,fontSize:11,color:"#94a3b8"}}>— unassigned —</span>)}
-                </div>
-              );
-            })}
+        </>
+      ) : (
+        /* ── DESKTOP: two columns ── */
+        <div style={{display:"grid",gap:16,gridTemplateColumns:"minmax(0,1fr) 260px"}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Assign — {filledCount}/{slots.length}</div>
+            {pitchEl}
+            <div style={{display:"flex",gap:8,marginTop:10,justifyContent:"center"}}>
+              <Button variant="outline" size="sm" onClick={autoFill}>Auto-fill</Button>
+              <Button variant="outline" size="sm" onClick={clearAll}>Clear</Button>
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Bench ({benchPlayers.length})</div>
+            <div style={{marginBottom:12,maxHeight:200,overflow:"auto"}}>{benchEl}</div>
+            <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Starting XI</div>
+            <div style={{maxHeight:300,overflow:"auto"}}>{startingXIEl}</div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -490,7 +622,7 @@ function SubModal({open,onClose,playerOnPitch,allPlayers,benchIds,events,onSub})
 
 // ─── Extract Tab ──────────────────────────────────────────────────────────────
 
-function ExtractTab({isMobile,imageUrl,imageDataUrl,ocrText,setOcrText,ocrError,setOcrError,manualText,setManualText,isExtracting,fileRef,handleImageUpload,runOCR,applyManualParse,loadDemoText}) {
+function ExtractTab({isMobile,imageUrl,imageDataUrl,ocrText,setOcrText,ocrError,setOcrError,manualText,setManualText,isExtracting,fileRef,handleImageUpload,runOCR,applyManualParse,loadDemoText,clearImage}) {
   const [sub,setSub]=useState("photo");
   return (
     <div style={{display:"grid",gap:16}}>
@@ -504,10 +636,23 @@ function ExtractTab({isMobile,imageUrl,imageDataUrl,ocrText,setOcrText,ocrError,
               <Button onClick={()=>fileRef.current?.click()}><Upload size={16}/> Upload</Button>
               <Button variant="outline" onClick={runOCR} disabled={!imageDataUrl||isExtracting}><ScanText size={16}/>{isExtracting?"Extracting…":"Extract"}</Button>
               <Button variant="outline" onClick={loadDemoText}><Users size={16}/> Demo</Button>
+              {imageUrl&&<Button variant="danger" onClick={clearImage}><X size={16}/> Remove</Button>}
             </div>
             {ocrError&&<div style={{border:"1px solid #fde68a",background:"#fefce8",color:"#854d0e",borderRadius:16,padding:14,marginBottom:16,display:"flex",gap:8}}><AlertTriangle size={16} style={{marginTop:2,flexShrink:0}}/><span>{ocrError}</span></div>}
-            <div style={{border:"1px solid #e2e8f0",background:"#f8fafc",borderRadius:16,padding:12,minHeight:260}}>
-              {imageUrl?<img src={imageUrl} alt="Team sheet" style={{width:"100%",maxHeight:480,objectFit:"contain",borderRadius:12}}/>:<div style={{minHeight:220,display:"flex",alignItems:"center",justifyContent:"center",border:"1px dashed #cbd5e1",borderRadius:12,color:"#64748b"}}>Team sheet preview</div>}
+            <div style={{border:"1px solid #e2e8f0",background:"#f8fafc",borderRadius:16,padding:12,minHeight:260,position:"relative"}}>
+              {imageUrl?(
+                <>
+                  <img src={imageUrl} alt="Team sheet" style={{width:"100%",maxHeight:480,objectFit:"contain",borderRadius:12}}/>
+                  <button onClick={clearImage} style={{position:"absolute",top:16,right:16,background:"rgba(15,23,42,0.7)",border:"none",borderRadius:"50%",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#fff"}}>
+                    <X size={16}/>
+                  </button>
+                </>
+              ):(
+                <div style={{minHeight:220,display:"flex",alignItems:"center",justifyContent:"center",border:"1px dashed #cbd5e1",borderRadius:12,color:"#64748b",flexDirection:"column",gap:8}}>
+                  <Upload size={28} style={{opacity:0.3}}/>
+                  <span>Upload a team sheet image to get started</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -906,12 +1051,52 @@ export default function App() {
 
   useEffect(()=>{if(!matchStarted)setClock(periodLengthSecs);},[periodMins,matchStarted,periodLengthSecs]);
 
+  // Wall-clock timer — survives mobile screen sleep.
+  // timerDeadline = the Date.now() ms when the clock should hit 0.
+  const timerDeadline = useRef(null);
+
   useEffect(()=>{
-    if(!timerOn) return;
+    if(!timerOn){
+      timerDeadline.current = null;
+      return;
+    }
     if(clock<=0){setTimerOn(false);return;}
-    const id=setInterval(()=>setClock(c=>{if(c<=1){setTimerOn(false);return 0;}return c-1;}),1000);
-    return()=>clearInterval(id);
-  },[timerOn,clock]);
+
+    // On first start / resume: set deadline from current remaining seconds
+    if(timerDeadline.current === null){
+      timerDeadline.current = Date.now() + clock * 1000;
+    }
+
+    const tick = ()=>{
+      const remaining = Math.round((timerDeadline.current - Date.now()) / 1000);
+      if(remaining <= 0){
+        setClock(0);
+        setTimerOn(false);
+        timerDeadline.current = null;
+      } else {
+        setClock(remaining);
+      }
+    };
+
+    // Also recalculate immediately when screen wakes (visibilitychange)
+    const onVisible = ()=>{ if(!document.hidden && timerOn) tick(); };
+    document.addEventListener("visibilitychange", onVisible);
+
+    const id = setInterval(tick, 500); // 500ms so we never miss a second
+    return()=>{
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  },[timerOn]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When pausing, clear deadline so resume recalculates from current clock
+  const prevTimerOn = useRef(timerOn);
+  useEffect(()=>{
+    if(prevTimerOn.current && !timerOn){
+      timerDeadline.current = null; // paused — deadline reset, clock value preserved
+    }
+    prevTimerOn.current = timerOn;
+  },[timerOn]);
 
   useEffect(()=>{
     const raw=localStorage.getItem(STORAGE_KEY);
@@ -957,6 +1142,10 @@ export default function App() {
     try{setOcrError("");setImageUrl(URL.createObjectURL(file));setImageDataUrl(await fileToDataUrl(file));}
     catch(err){console.error(err);setOcrError("Could not prepare image");}
   }
+  function clearImage(){
+    setImageUrl("");setImageDataUrl("");setOcrText("");setOcrError("");
+    if(fileRef.current) fileRef.current.value="";
+  }
   function parsePlayersJson(text){
     try{const c=String(text||"").replace(/^```json/i,"").replace(/^```/,"").replace(/```$/,"").trim();
       const parsed=JSON.parse(c);if(!Array.isArray(parsed.players))return[];
@@ -974,7 +1163,11 @@ export default function App() {
       setOcrText(data.result);const pp=parsePlayersJson(data.result);
       if(pp.length>0){setPlayers(sortPlayersByNumber(pp));setActiveTab("players");}
       else setOcrError("OCR returned text but player JSON could not be parsed.");
-    }catch(err){console.error(err);setOcrError(err.message||"OCR failed");}
+    }catch(err){
+      console.error(err);
+      const msg=err.message||"OCR failed";
+      setOcrError(`${msg} — Tip: copy the text from Google Lens into the Manual Clean-up box below and click Parse Text.`);
+    }
     finally{setIsExtracting(false);}
   }
   function applyManualParse(src=manualText){
@@ -1061,7 +1254,7 @@ export default function App() {
               <div style={{display:"grid",gap:12,gridTemplateColumns:isMobile?"1fr 1fr":"repeat(auto-fit,minmax(200px,1fr))"}}>
                 <Input value={matchName} onChange={e=>setMatchName(e.target.value)} placeholder="Match name"/>
                 <Input value={opponent}  onChange={e=>setOpponent(e.target.value)}  placeholder="Opponent"/>
-                <ClockPanel isMobile={isMobile} numPeriods={numPeriods} setNumPeriods={setNumPeriods} periodMins={periodMins} setPeriodMins={setPeriodMins} currentPeriod={currentPeriod} setCurrentPeriod={setCurrentPeriod} clock={clock} setClock={setClock} timerOn={timerOn} setTimerOn={setTimerOn} periodLengthSecs={periodLengthSecs} matchStarted={matchStarted} setMatchStarted={setMatchStarted}/>
+                <ClockPanel isMobile={isMobile} numPeriods={numPeriods} setNumPeriods={setNumPeriods} periodMins={periodMins} setPeriodMins={setPeriodMins} currentPeriod={currentPeriod} setCurrentPeriod={setCurrentPeriod} clock={clock} setClock={setClock} timerOn={timerOn} setTimerOn={setTimerOn} periodLengthSecs={periodLengthSecs} matchStarted={matchStarted} setMatchStarted={setMatchStarted} timerDeadline={timerDeadline}/>
               </div>
             </CardContent>
           </Card>
@@ -1103,7 +1296,7 @@ export default function App() {
           </div>
         )}
 
-        {activeTab==="extract" &&<ExtractTab isMobile={isMobile} imageUrl={imageUrl} imageDataUrl={imageDataUrl} ocrText={ocrText} setOcrText={setOcrText} ocrError={ocrError} setOcrError={setOcrError} manualText={manualText} setManualText={setManualText} isExtracting={isExtracting} fileRef={fileRef} handleImageUpload={handleImageUpload} runOCR={runOCR} applyManualParse={applyManualParse} loadDemoText={()=>{setManualText(DEMO_OCR_TEXT);setOcrError("");}}/>}
+        {activeTab==="extract" &&<ExtractTab isMobile={isMobile} imageUrl={imageUrl} imageDataUrl={imageDataUrl} ocrText={ocrText} setOcrText={setOcrText} ocrError={ocrError} setOcrError={setOcrError} manualText={manualText} setManualText={setManualText} isExtracting={isExtracting} fileRef={fileRef} handleImageUpload={handleImageUpload} runOCR={runOCR} applyManualParse={applyManualParse} loadDemoText={()=>{setManualText(DEMO_OCR_TEXT);setOcrError("");applyManualParse(DEMO_OCR_TEXT);}} clearImage={clearImage}/>}
         {activeTab==="players" &&<PlayersTab players={players} addBlankPlayer={addBlankPlayer} updatePlayer={updatePlayer} removePlayer={removePlayer} setEditingPlayer={setEditingPlayer}/>}
         {activeTab==="pitch"   &&<PitchTab isMobile={isMobile} players={players} events={events} leaderboard={leaderboard} selectedPlayerId={selectedPlayerId} setSelectedPlayerId={setSelectedPlayerId} logAction={logAction} undoLastEvent={undoLastEvent} resetMatch={resetMatch} formation={formation} lineupData={lineupData} benchIds={benchIds} onMakeSub={handleMakeSub} currentPeriod={currentPeriod} periodLengthSecs={periodLengthSecs} clock={clock} timerOn={timerOn}/>}
         {activeTab==="database"&&<DatabaseTab isMobile={isMobile} db={db} tests={tests} setTests={setTests}/>}
@@ -1126,8 +1319,8 @@ export default function App() {
         )}
       </Modal>
 
-      <Modal open={showSetup} onClose={()=>setShowSetup(false)} title="" maxWidth={900}>
-        <PreMatchSetup players={players} onConfirm={handleLineupConfirm}/>
+      <Modal open={showSetup} onClose={()=>setShowSetup(false)} title="" maxWidth={isMobile?9999:900} fullscreen={isMobile}>
+        <PreMatchSetup players={players} onConfirm={handleLineupConfirm} isMobile={isMobile}/>
       </Modal>
     </div>
   );
