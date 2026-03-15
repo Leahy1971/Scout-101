@@ -968,19 +968,23 @@ function PitchTab({
                     const subOffs=events.filter(e=>e.playerId===p.id&&e.action==="sub_off").length;
                     const subOns=events.filter(e=>e.playerId===p.id&&e.action==="sub_on").length;
                     const dotColor=subOffColour(subOffs);
+                    const tokenSize=isMobile?46:54;
                     return (
-                      <motion.div key={p.id} whileTap={{scale:0.92}} style={{position:"absolute",left:`${p.x}%`,top:`${p.y}%`,transform:"translate(-50%,-50%)",zIndex:sel?10:5}}>
-                        <div onClick={()=>setSelectedPlayerId(p.id)}
-                          style={{width:isMobile?46:54,height:isMobile?46:54,borderRadius:"50%",border:sel?"3px solid #fcd34d":"2px solid #fff",background:sel?"#fcd34d":"#fff",color:"#0f172a",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",boxShadow:sel?"0 0 0 3px rgba(252,211,77,0.4),0 8px 18px rgba(0,0,0,0.2)":"0 4px 12px rgba(0,0,0,0.18)",cursor:"pointer",position:"relative"}}>
-                          {dotColor&&<div style={{position:"absolute",top:-4,right:-4,width:13,height:13,borderRadius:"50%",background:dotColor,border:"2px solid #fff"}}/>}
-                          {subOns>0&&<div style={{position:"absolute",top:-4,left:-4,width:13,height:13,borderRadius:"50%",background:"#16a34a",border:"2px solid #fff",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:7,color:"#fff",fontWeight:700}}>{subOns}</span></div>}
-                          <span style={{fontSize:isMobile?11:13,fontWeight:800,lineHeight:1}}>{p.no}</span>
-                          <span style={{maxWidth:isMobile?34:42,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:7,lineHeight:1.2,color:"#475569"}}>{p.name.split(" ")[0].slice(0,8)}</span>
-                          <span style={{fontSize:7,lineHeight:1,color:"#94a3b8"}}>{p.slotPos}</span>
-                          {score!==0&&<span style={{fontSize:7,lineHeight:1,color:score>0?"#166534":"#991b1b",fontWeight:700}}>{score>0?`+${score}`:score}</span>}
-                        </div>
-                        {sel&&<button onClick={e=>{e.stopPropagation();setSubTarget(p.id);}} style={{position:"absolute",bottom:-18,left:"50%",transform:"translateX(-50%)",background:"#dc2626",color:"#fff",border:"none",borderRadius:8,padding:"2px 7px",fontSize:9,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",zIndex:20}}>↓ Sub</button>}
-                      </motion.div>
+                      // Outer div handles position only — no transform conflict with Framer
+                      <div key={p.id} style={{position:"absolute",left:`${p.x}%`,top:`${p.y}%`,transform:"translate(-50%,-50%)",zIndex:sel?10:5}}>
+                        <motion.div whileTap={{scale:0.92}} style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
+                          <div onClick={()=>setSelectedPlayerId(p.id)}
+                            style={{width:tokenSize,height:tokenSize,borderRadius:"50%",border:sel?"3px solid #fcd34d":"2px solid #fff",background:sel?"#fcd34d":"#fff",color:"#0f172a",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",boxShadow:sel?"0 0 0 3px rgba(252,211,77,0.4),0 8px 18px rgba(0,0,0,0.2)":"0 4px 12px rgba(0,0,0,0.18)",cursor:"pointer",position:"relative"}}>
+                            {dotColor&&<div style={{position:"absolute",top:-4,right:-4,width:13,height:13,borderRadius:"50%",background:dotColor,border:"2px solid #fff"}}/>}
+                            {subOns>0&&<div style={{position:"absolute",top:-4,left:-4,width:13,height:13,borderRadius:"50%",background:"#16a34a",border:"2px solid #fff",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:7,color:"#fff",fontWeight:700}}>{subOns}</span></div>}
+                            <span style={{fontSize:isMobile?11:13,fontWeight:800,lineHeight:1}}>{p.no}</span>
+                            <span style={{maxWidth:isMobile?34:42,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:7,lineHeight:1.2,color:"#475569"}}>{p.name.split(" ")[0].slice(0,8)}</span>
+                            <span style={{fontSize:7,lineHeight:1,color:"#94a3b8"}}>{p.slotPos}</span>
+                            {score!==0&&<span style={{fontSize:7,lineHeight:1,color:score>0?"#166534":"#991b1b",fontWeight:700}}>{score>0?`+${score}`:score}</span>}
+                          </div>
+                          {sel&&<button onClick={e=>{e.stopPropagation();setSubTarget(p.id);}} style={{marginTop:4,background:"#dc2626",color:"#fff",border:"none",borderRadius:8,padding:"2px 7px",fontSize:9,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>↓ Sub</button>}
+                        </motion.div>
+                      </div>
                     );
                   })}
                   {pitchPlayers.length===0&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(255,255,255,0.8)",fontSize:12,fontWeight:600,textAlign:"center",padding:20}}>No lineup set — click Setup</div>}
