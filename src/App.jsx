@@ -9,6 +9,12 @@ import {
   Ambulance, BatteryLow, HandMetal, ShieldAlert,
   ChevronRight, ArrowLeftRight, ClipboardCheck,
   Clock, TrendingUp, TrendingDown, Minus,
+  MoveRight, Crosshair as CrosshairIcon, Dumbbell,
+  ArrowUp, ChevronsUp, Wind, Navigation,
+  RefreshCw, Layers, Star, Flame,
+  ThumbsUp, ThumbsDown, Ban, Square,
+  AlignJustify, Filter, BarChart2,
+  CircleDot, Waypoints, ShieldCheck,
 } from "lucide-react";
 
 // ─── Formations ───────────────────────────────────────────────────────────────
@@ -25,55 +31,131 @@ const FORMATIONS = {
 };
 const FORMATION_NAMES = Object.keys(FORMATIONS);
 
-// ─── Actions ──────────────────────────────────────────────────────────────────
+// ─── Actions — full scoring matrix ────────────────────────────────────────────
+// Weights: Good=+3, Bad=-2, Neutral=+1 (per matrix)
+// Exceptions from matrix: Goal Good=+3 Bad=-3; Assist Good=+3 Bad=-3
+//   Foul Won Good=+1 Bad=-2 Neutral=none
+//   Offside Bad=-2 Neutral=-1
+//   Yellow Card Neutral=-1
+//   Red Card Bad=-2
+//   Work Rate / Pressing Neutral=-1
 
 const ACTIONS = [
-  { key:"goal",      label:"Goal",         icon:"⚽", weight: 5  },
-  { key:"assist",    label:"Assist",       icon:"🎯", weight: 4  },
-  { key:"pace",      label:"Pace",         icon:"⚡", weight: 2  },
-  { key:"iq",        label:"Game IQ",      icon:"🧠", weight: 2  },
-  { key:"physical",  label:"Physical",     icon:"💪", weight: 2  },
-  { key:"duel",      label:"Duel Won",     icon:"🛡️", weight: 2  },
-  { key:"shooting",  label:"Shooting",     icon:"🎯", weight: 2  },
-  { key:"passing",   label:"Passing",      icon:"➡️", weight: 2  },
-  { key:"pressing",  label:"Pressing",     icon:"🔥", weight: 2  },
-  { key:"gk_save",   label:"GK Save",      icon:"🧤", weight: 2  },
-  { key:"weak",      label:"Weak",         icon:"❌", weight:-2  },
-  { key:"foul",      label:"Foul",         icon:"🟨", weight:-2  },
-  { key:"lazy",      label:"Lazy",         icon:"😴", weight:-2  },
-  { key:"gk_error",  label:"GK Error",     icon:"🙈", weight:-2  },
-  // Neutral (no score impact)
-  { key:"sub_reason_mins",   label:"Mins",    icon:"⏱️", weight: 0 },
-  { key:"sub_reason_poor",   label:"Poor",    icon:"👎", weight: 0 },
-  { key:"sub_reason_good",   label:"Good",    icon:"👍", weight: 0 },
-  { key:"sub_reason_injury", label:"Injury",  icon:"🩺", weight: 0 },
-  // Internal (not shown as action buttons)
-  { key:"sub_on",   label:"Subbed On",  icon:"🟢", weight: 0 },
-  { key:"sub_off",  label:"Subbed Off", icon:"🔴", weight: 0 },
+  // ── TECHNICAL ──────────────────────────────────────────────────────────────
+  { key:"passing",      label:"Passing",       icon:"➡️",  group:"tech",  good:3,  bad:-2, neutral:1  },
+  { key:"pass_move",    label:"Pass & Move",   icon:"🔄",  group:"tech",  good:3,  bad:-2, neutral:1  },
+  { key:"crossing",     label:"Crossing",      icon:"🌐",  group:"tech",  good:3,  bad:-2, neutral:1  },
+  { key:"shooting",     label:"Shooting",      icon:"🎯",  group:"tech",  good:3,  bad:-2, neutral:1  },
+  { key:"goal",         label:"Goal",          icon:"⚽",  group:"tech",  good:3,  bad:-3, neutral:1  },
+  { key:"assist",       label:"Assist",        icon:"🥅",  group:"tech",  good:3,  bad:-3, neutral:1  },
+  { key:"dribble",      label:"Dribble",       icon:"💨",  group:"tech",  good:3,  bad:-2, neutral:1  },
+  { key:"ball_control", label:"Ball Control",  icon:"🎱",  group:"tech",  good:3,  bad:-2, neutral:1  },
+  // ── PHYSICAL ───────────────────────────────────────────────────────────────
+  { key:"pace",         label:"Pace",          icon:"⚡",  group:"phys",  good:3,  bad:-2, neutral:1  },
+  { key:"movement",     label:"Movement",      icon:"🏃",  group:"phys",  good:3,  bad:-2, neutral:1  },
+  { key:"physical",     label:"Physical",      icon:"💪",  group:"phys",  good:3,  bad:-2, neutral:1  },
+  { key:"header",       label:"Header",        icon:"🪖",  group:"phys",  good:3,  bad:-2, neutral:1  },
+  // ── DEFENSIVE ──────────────────────────────────────────────────────────────
+  { key:"tackle",       label:"Tackle",        icon:"🛡️",  group:"def",   good:3,  bad:-2, neutral:1  },
+  { key:"interception", label:"Interception",  icon:"✋",  group:"def",   good:3,  bad:-2, neutral:1  },
+  { key:"cleared",      label:"Cleared/Block", icon:"🚫",  group:"def",   good:3,  bad:-2, neutral:1  },
+  { key:"tracking",     label:"Tracking Back", icon:"↩️",  group:"def",   good:3,  bad:-2, neutral:1  },
+  // ── MENTAL / WORK RATE ─────────────────────────────────────────────────────
+  { key:"work_rate",    label:"Work Rate",     icon:"🔥",  group:"mental", good:3, bad:-2, neutral:-1 },
+  { key:"pressing",     label:"Pressing",      icon:"⚔️",  group:"mental", good:3, bad:-2, neutral:-1 },
+  { key:"iq",           label:"IQ",            icon:"🧠",  group:"mental", good:3, bad:-2, neutral:1  },
+  { key:"foul_won",     label:"Foul Won",      icon:"🟡",  group:"mental", good:1, bad:-2, neutral:0  },
+  // ── DISCIPLINE ─────────────────────────────────────────────────────────────
+  { key:"offside",      label:"Offside",       icon:"🚩",  group:"disc",  good:0,  bad:-2, neutral:-1 },
+  { key:"yellow_card",  label:"Yellow Card",   icon:"🟨",  group:"disc",  good:0,  bad:0,  neutral:-1 },
+  { key:"red_card",     label:"Red Card",      icon:"🟥",  group:"disc",  good:0,  bad:-2, neutral:0  },
+  // ── GOALKEEPER ─────────────────────────────────────────────────────────────
+  { key:"gk_save",      label:"GK Save",       icon:"🧤",  group:"gk",    good:3,  bad:-2, neutral:1  },
+  { key:"gk_feet",      label:"GK Feet",       icon:"🦶",  group:"gk",    good:3,  bad:-2, neutral:1  },
+  { key:"gk_kicking",   label:"GK Kicking",    icon:"👟",  group:"gk",    good:3,  bad:-2, neutral:1  },
+  { key:"distribution", label:"Distribution",  icon:"📤",  group:"gk",    good:3,  bad:-2, neutral:1  },
+  // ── SUB REASONS (neutral only) ─────────────────────────────────────────────
+  { key:"sub_reason_mins",    label:"Mins",    icon:"⏱️",  group:"sub",   good:0, bad:0, neutral:1  },
+  { key:"sub_reason_poor",    label:"Poor",    icon:"👎",  group:"sub",   good:0, bad:0, neutral:-2 },
+  { key:"sub_reason_good",    label:"Good",    icon:"👍",  group:"sub",   good:0, bad:0, neutral:3  },
+  { key:"sub_reason_injury",  label:"Injury",  icon:"🩺",  group:"sub",   good:0, bad:0, neutral:1  },
+  // ── INTERNAL ───────────────────────────────────────────────────────────────
+  { key:"sub_on",   label:"Subbed On",  icon:"🟢", group:"internal", good:0, bad:0, neutral:0 },
+  { key:"sub_off",  label:"Subbed Off", icon:"🔴", group:"internal", good:0, bad:0, neutral:0 },
 ];
 
-const ACTION_BUTTONS = [
-  { key:"goal",     icon:Goal,          label:"Goal"     },
-  { key:"assist",   icon:Target,        label:"Assist"   },
-  { key:"shooting", icon:Footprints,    label:"Shooting" },
-  { key:"passing",  icon:SendHorizonal, label:"Passing"  },
-  { key:"pressing", icon:Activity,      label:"Pressing" },
-  { key:"pace",     icon:Zap,           label:"Pace"     },
-  { key:"iq",       icon:Brain,         label:"IQ"       },
-  { key:"physical", icon:Shield,        label:"Physical" },
-  { key:"duel",     icon:Swords,        label:"Duel Won" },
-  { key:"gk_save",  icon:HandMetal,     label:"GK Save"  },
-  { key:"weak",     icon:SquarePen,     label:"Weak"     },
-  { key:"foul",     icon:AlertOctagon,  label:"Foul"     },
-  { key:"lazy",     icon:BatteryLow,    label:"Lazy"     },
-  { key:"gk_error", icon:ShieldAlert,   label:"GK Error" },
-  // Neutral sub-reason buttons
+// Helper — get the weight stored on an event (events now carry a 'variant' field)
+// variant: "good" | "bad" | "neutral"
+function getActionWeight(actionKey, variant) {
+  const a = ACTIONS.find(x => x.key === actionKey);
+  if (!a) return 0;
+  if (variant === "good")    return a.good    || 0;
+  if (variant === "bad")     return a.bad     || 0;
+  if (variant === "neutral") return a.neutral || 0;
+  // Legacy events without variant — fall back to net +/- based on good value
+  return a.good > 0 ? a.good : a.bad || 0;
+}
+
+// ── Button layout — three-variant button per skill ────────────────────────────
+// Each entry renders as THREE buttons: Good (+3) / Bad (-2) / Neutral (+1)
+// Sub reason and internal actions are single-button (neutral only)
+
+const SKILL_BUTTONS = [
+  // Technical
+  { key:"passing",      icon:SendHorizonal, label:"Passing"      },
+  { key:"pass_move",    icon:MoveRight,     label:"Pass & Move"  },
+  { key:"crossing",     icon:Navigation,    label:"Crossing"     },
+  { key:"shooting",     icon:CrosshairIcon, label:"Shooting"     },
+  { key:"goal",         icon:Goal,          label:"Goal"         },
+  { key:"assist",       icon:Target,        label:"Assist"       },
+  { key:"dribble",      icon:Wind,          label:"Dribble"      },
+  { key:"ball_control", icon:CircleDot,     label:"Ball Ctrl"    },
+  // Physical
+  { key:"pace",         icon:Zap,           label:"Pace"         },
+  { key:"movement",     icon:Footprints,    label:"Movement"     },
+  { key:"physical",     icon:Dumbbell,      label:"Physical"     },
+  { key:"header",       icon:ArrowUp,       label:"Header"       },
+  // Defensive
+  { key:"tackle",       icon:Shield,        label:"Tackle"       },
+  { key:"interception", icon:ShieldCheck,   label:"Intercept"    },
+  { key:"cleared",      icon:Ban,           label:"Cleared"      },
+  { key:"tracking",     icon:RefreshCw,     label:"Tracking"     },
+  // Mental
+  { key:"work_rate",    icon:ChevronsUp,    label:"Work Rate"    },
+  { key:"pressing",     icon:Activity,      label:"Pressing"     },
+  { key:"iq",           icon:Brain,         label:"IQ"           },
+  { key:"foul_won",     icon:Star,          label:"Foul Won"     },
+  // Discipline
+  { key:"offside",      icon:AlignJustify,  label:"Offside"      },
+  { key:"yellow_card",  icon:Square,        label:"Yellow"       },
+  { key:"red_card",     icon:Flame,         label:"Red Card"     },
+  // GK
+  { key:"gk_save",      icon:HandMetal,     label:"GK Save"      },
+  { key:"gk_feet",      icon:Footprints,    label:"GK Feet"      },
+  { key:"gk_kicking",   icon:Zap,           label:"GK Kick"      },
+  { key:"distribution", icon:Waypoints,     label:"Distrib."     },
+];
+
+// Sub reason buttons (single tap, no Good/Bad variant)
+const SUB_REASON_BUTTONS = [
   { key:"sub_reason_mins",   icon:Clock,        label:"Mins"   },
   { key:"sub_reason_poor",   icon:TrendingDown, label:"Poor"   },
   { key:"sub_reason_good",   icon:TrendingUp,   label:"Good"   },
   { key:"sub_reason_injury", icon:Ambulance,    label:"Injury" },
 ];
 
+// Groups shown in the pitch action panel
+const SKILL_GROUPS = [
+  { id:"tech",   label:"⚽ Technical",   color:"#166534", bg:"#f0fdf4" },
+  { id:"phys",   label:"💪 Physical",    color:"#1d4ed8", bg:"#eff6ff" },
+  { id:"def",    label:"🛡️ Defensive",   color:"#7c3aed", bg:"#f5f3ff" },
+  { id:"mental", label:"🧠 Mental",      color:"#b45309", bg:"#fffbeb" },
+  { id:"disc",   label:"🟨 Discipline",  color:"#b91c1c", bg:"#fef2f2" },
+  { id:"gk",     label:"🧤 Goalkeeper",  color:"#0e7490", bg:"#ecfeff" },
+];
+
+// Legacy ACTIONS weight lookup (used by scorePlayer + leaderboard)
+// Now weight is per-event (stored as event.weight), but we keep a fallback
 const PERIOD_LABELS = ["1st","2nd","3rd","4th"];
 const DEMO_OCR_TEXT = `1
 James Harper
@@ -235,7 +317,11 @@ function formatClock(s) {
   return `${Math.floor(safe/60)}:${String(safe%60).padStart(2,"0")}`;
 }
 function scorePlayer(events,id) {
-  return events.filter(e=>e.playerId===id).reduce((sum,e)=>sum+(ACTIONS.find(a=>a.key===e.action)?.weight||0),0);
+  return events.filter(e=>e.playerId===id).reduce((sum,e)=>{
+    // New events carry e.weight directly; legacy events fall back to getActionWeight
+    if (typeof e.weight === "number") return sum + e.weight;
+    return sum + getActionWeight(e.action, e.variant);
+  },0);
 }
 function getActionCounts(events,id) {
   return ACTIONS.reduce((acc,a)=>{acc[a.key]=events.filter(e=>e.playerId===id&&e.action===a.key).length;return acc;},{});
@@ -715,14 +801,23 @@ function EventLogList({events,players}) {
   return (
     <div style={{display:"grid",gap:5}}>
       {events.map(e=>{
-        const p=players.find(x=>x.id===e.playerId),a=ACTIONS.find(x=>x.key===e.action);
+        const p=players.find(x=>x.id===e.playerId);
+        const a=ACTIONS.find(x=>x.key===e.action);
         const isSub=e.action==="sub_on"||e.action==="sub_off"||e.action?.startsWith("sub_reason");
+        const w = typeof e.weight==="number" ? e.weight : getActionWeight(e.action, e.variant);
+        const variantColor = e.variant==="good"?"#166534":e.variant==="bad"?"#991b1b":"#475569";
+        const variantBg    = e.variant==="good"?"#dcfce7":e.variant==="bad"?"#fee2e2":"#f1f5f9";
         return (
           <div key={e.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,border:"1px solid",borderColor:isSub?"#bfdbfe":"#e2e8f0",background:isSub?"#eff6ff":"#fff",borderRadius:11,padding:"7px 11px"}}>
-            <div>
-              <div style={{fontWeight:700,fontSize:12}}>{a?.icon} {p?.no}. {p?.name}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:700,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a?.icon} {p?.no}. {p?.name}</div>
               <div style={{fontSize:10,color:"#64748b"}}>{a?.label} · P{e.period||1} · {formatClock(e.t)}</div>
             </div>
+            {!isSub&&w!==0&&(
+              <span style={{fontSize:10,fontWeight:800,color:variantColor,background:variantBg,border:`1px solid ${variantBg}`,borderRadius:6,padding:"2px 6px",flexShrink:0}}>
+                {w>0?`+${w}`:w}
+              </span>
+            )}
           </div>
         );
       })}
@@ -891,25 +986,87 @@ function PitchTab({
                   {pitchPlayers.length===0&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(255,255,255,0.8)",fontSize:12,fontWeight:600,textAlign:"center",padding:20}}>No lineup set — click Setup</div>}
                 </div>
 
-                {/* Action buttons */}
-                <div style={{marginTop:10}}>
-                  <div style={{fontSize:10,fontWeight:700,color:"#166534",marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>✅ Positive</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4,marginBottom:10}}>
-                    {ACTION_BUTTONS.filter(b=>(ACTIONS.find(a=>a.key===b.key)?.weight??0)>0).map(b=>(
-                      <ActionBtn key={b.key} actionKey={b.key} icon={b.icon} label={b.label} disabled={disabled} onClick={()=>logAction(b.key)}/>
-                    ))}
+                {/* ── Action buttons — grouped, 3-variant per skill ── */}
+                <div style={{marginTop:12}}>
+                  {!selectedPlayerId&&(
+                    <div style={{textAlign:"center",padding:"10px 0",fontSize:12,color:"#94a3b8",marginBottom:8}}>Tap a player to enable actions</div>
+                  )}
+
+                  {/* Column headers */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 40px 40px 40px",gap:3,marginBottom:4,paddingLeft:2}}>
+                    <div/>
+                    <div style={{textAlign:"center",fontSize:9,fontWeight:700,color:"#166534"}}>G</div>
+                    <div style={{textAlign:"center",fontSize:9,fontWeight:700,color:"#991b1b"}}>B</div>
+                    <div style={{textAlign:"center",fontSize:9,fontWeight:700,color:"#475569"}}>N</div>
                   </div>
-                  <div style={{fontSize:10,fontWeight:700,color:"#991b1b",marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>❌ Negative</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4,marginBottom:10}}>
-                    {ACTION_BUTTONS.filter(b=>(ACTIONS.find(a=>a.key===b.key)?.weight??0)<0).map(b=>(
-                      <ActionBtn key={b.key} actionKey={b.key} icon={b.icon} label={b.label} disabled={disabled} onClick={()=>logAction(b.key)}/>
-                    ))}
-                  </div>
-                  <div style={{fontSize:10,fontWeight:700,color:"#475569",marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>⬜ Neutral — Sub Reason</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4}}>
-                    {ACTION_BUTTONS.filter(b=>b.key.startsWith("sub_reason")).map(b=>(
-                      <ActionBtn key={b.key} actionKey={b.key} icon={b.icon} label={b.label} disabled={disabled} onClick={()=>logAction(b.key)}/>
-                    ))}
+
+                  {SKILL_GROUPS.map(group=>{
+                    const skills=SKILL_BUTTONS.filter(b=>ACTIONS.find(a=>a.key===b.key)?.group===group.id);
+                    if(!skills.length) return null;
+                    return (
+                      <div key={group.id} style={{marginBottom:10}}>
+                        <div style={{fontSize:10,fontWeight:700,color:group.color,marginBottom:4,textTransform:"uppercase",letterSpacing:0.5,paddingLeft:2}}>{group.label}</div>
+                        {skills.map(skill=>{
+                          const action=ACTIONS.find(a=>a.key===skill.key);
+                          const Icon=skill.icon;
+                          const hasGood   = action?.good    !== 0;
+                          const hasBad    = action?.bad     !== 0;
+                          const hasNeutral= action?.neutral !== 0;
+                          return (
+                            <div key={skill.key} style={{display:"grid",gridTemplateColumns:"1fr 40px 40px 40px",gap:3,marginBottom:3,alignItems:"center"}}>
+                              {/* Skill label */}
+                              <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:600,color:"#0f172a",paddingLeft:2}}>
+                                <Icon size={12} strokeWidth={2} style={{color:group.color,flexShrink:0}}/>
+                                <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{skill.label}</span>
+                              </div>
+                              {/* Good button */}
+                              <button
+                                disabled={!selectedPlayerId||!hasGood}
+                                onClick={()=>logAction(skill.key,"good")}
+                                style={{height:32,borderRadius:8,border:"1px solid",borderColor:selectedPlayerId&&hasGood?"#bbf7d0":"#e2e8f0",background:selectedPlayerId&&hasGood?"#f0fdf4":"#f8fafc",color:selectedPlayerId&&hasGood?"#166534":"#cbd5e1",fontWeight:700,fontSize:10,cursor:selectedPlayerId&&hasGood?"pointer":"not-allowed",display:"flex",alignItems:"center",justifyContent:"center",gap:2}}
+                              >
+                                {hasGood?<>+{action.good}</>:<Minus size={10}/>}
+                              </button>
+                              {/* Bad button */}
+                              <button
+                                disabled={!selectedPlayerId||!hasBad}
+                                onClick={()=>logAction(skill.key,"bad")}
+                                style={{height:32,borderRadius:8,border:"1px solid",borderColor:selectedPlayerId&&hasBad?"#fecaca":"#e2e8f0",background:selectedPlayerId&&hasBad?"#fef2f2":"#f8fafc",color:selectedPlayerId&&hasBad?"#991b1b":"#cbd5e1",fontWeight:700,fontSize:10,cursor:selectedPlayerId&&hasBad?"pointer":"not-allowed",display:"flex",alignItems:"center",justifyContent:"center",gap:2}}
+                              >
+                                {hasBad?<>{action.bad}</>:<Minus size={10}/>}
+                              </button>
+                              {/* Neutral button */}
+                              <button
+                                disabled={!selectedPlayerId||!hasNeutral}
+                                onClick={()=>logAction(skill.key,"neutral")}
+                                style={{height:32,borderRadius:8,border:"1px solid",borderColor:selectedPlayerId&&hasNeutral?"#e2e8f0":"#e2e8f0",background:selectedPlayerId&&hasNeutral?"#f8fafc":"#f8fafc",color:selectedPlayerId&&hasNeutral?(action.neutral>0?"#475569":action.neutral<0?"#991b1b":"#475569"):"#cbd5e1",fontWeight:700,fontSize:10,cursor:selectedPlayerId&&hasNeutral?"pointer":"not-allowed",display:"flex",alignItems:"center",justifyContent:"center",gap:2}}
+                              >
+                                {hasNeutral?<>{action.neutral>0?"+":""}{action.neutral}</>:<Minus size={10}/>}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+
+                  {/* Sub reason row */}
+                  <div style={{marginTop:6}}>
+                    <div style={{fontSize:10,fontWeight:700,color:"#475569",marginBottom:4,textTransform:"uppercase",letterSpacing:0.5}}>🔄 Sub Reason</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4}}>
+                      {SUB_REASON_BUTTONS.map(b=>{
+                        const action=ACTIONS.find(a=>a.key===b.key);
+                        const Icon=b.icon;
+                        return (
+                          <button key={b.key} disabled={!selectedPlayerId} onClick={()=>logAction(b.key,"neutral")}
+                            style={{padding:"6px 2px",borderRadius:10,border:"1px solid #e2e8f0",background:"#f8fafc",color:selectedPlayerId?"#475569":"#cbd5e1",cursor:selectedPlayerId?"pointer":"not-allowed",display:"flex",flexDirection:"column",alignItems:"center",gap:2,opacity:selectedPlayerId?1:0.5}}>
+                            <Icon size={13} strokeWidth={2}/>
+                            <span style={{fontSize:9,fontWeight:600}}>{b.label}</span>
+                            <span style={{fontSize:8,color:"#94a3b8"}}>{action?.neutral>0?`+${action.neutral}`:action?.neutral}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </>
@@ -1200,10 +1357,11 @@ export default function App() {
     setBenchIds(prev=>[...prev.filter(id=>id!==onId),offId]);
   }
 
-  const logAction=(key)=>{
+  const logAction=(key, variant="good")=>{
     if(!selectedPlayerId)return;
     const elapsed=periodLengthSecs-clock;
-    setEvents(prev=>[{id:makeId(),t:elapsed,period:currentPeriod,playerId:selectedPlayerId,action:key,ts:new Date().toISOString()},...prev]);
+    const weight=getActionWeight(key, variant);
+    setEvents(prev=>[{id:makeId(),t:elapsed,period:currentPeriod,playerId:selectedPlayerId,action:key,variant,weight,ts:new Date().toISOString()},...prev]);
   };
   const undoLastEvent=()=>setEvents(prev=>prev.slice(1));
   const resetMatch=()=>{
@@ -1218,9 +1376,10 @@ export default function App() {
 
   function exportJSON(){const blob=new Blob([JSON.stringify({players,events,db,matchName,opponent,numPeriods,periodMins,formation,lineupData},null,2)],{type:"application/json"});const a=Object.assign(document.createElement("a"),{href:URL.createObjectURL(blob),download:`scout-${matchName.replace(/\s+/g,"-").toLowerCase()}.json`});a.click();URL.revokeObjectURL(a.href);}
   function exportCSV(){
-    const rows=[["Period","Time","No","Player","Pos","Action"],...events.map(e=>{
+    const rows=[["Period","Time","No","Player","Pos","Action","Variant","Score"],...events.map(e=>{
       const p=players.find(x=>x.id===e.playerId),a=ACTIONS.find(x=>x.key===e.action);
-      return[e.period||1,formatClock(e.t),p?.no||"",p?.name||"",p?.pos||"",a?.label||e.action];
+      const w=typeof e.weight==="number"?e.weight:getActionWeight(e.action,e.variant);
+      return[e.period||1,formatClock(e.t),p?.no||"",p?.name||"",p?.pos||"",a?.label||e.action,e.variant||"",w];
     })];
     const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
     const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
