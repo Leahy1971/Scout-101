@@ -20,6 +20,7 @@ import {
 // ─── Formations ───────────────────────────────────────────────────────────────
 
 const FORMATIONS = {
+  // ── 11-a-side ────────────────────────────────────────────────────────────────
   "4-3-3":   [{pos:"GK",x:50,y:88},{pos:"RB",x:82,y:72},{pos:"CB",x:62,y:76},{pos:"CB",x:38,y:76},{pos:"LB",x:18,y:72},{pos:"CM",x:70,y:54},{pos:"CM",x:50,y:50},{pos:"CM",x:30,y:54},{pos:"RW",x:80,y:26},{pos:"ST",x:50,y:18},{pos:"LW",x:20,y:26}],
   "4-4-2":   [{pos:"GK",x:50,y:88},{pos:"RB",x:82,y:72},{pos:"CB",x:62,y:76},{pos:"CB",x:38,y:76},{pos:"LB",x:18,y:72},{pos:"RM",x:82,y:50},{pos:"CM",x:62,y:50},{pos:"CM",x:38,y:50},{pos:"LM",x:18,y:50},{pos:"ST",x:62,y:22},{pos:"ST",x:38,y:22}],
   "4-2-3-1": [{pos:"GK",x:50,y:88},{pos:"RB",x:82,y:72},{pos:"CB",x:62,y:76},{pos:"CB",x:38,y:76},{pos:"LB",x:18,y:72},{pos:"CDM",x:62,y:57},{pos:"CDM",x:38,y:57},{pos:"RAM",x:78,y:38},{pos:"CAM",x:50,y:36},{pos:"LAM",x:22,y:38},{pos:"ST",x:50,y:18}],
@@ -28,8 +29,17 @@ const FORMATIONS = {
   "4-1-4-1": [{pos:"GK",x:50,y:88},{pos:"RB",x:82,y:72},{pos:"CB",x:62,y:76},{pos:"CB",x:38,y:76},{pos:"LB",x:18,y:72},{pos:"CDM",x:50,y:60},{pos:"RM",x:82,y:46},{pos:"CM",x:62,y:42},{pos:"CM",x:38,y:42},{pos:"LM",x:18,y:46},{pos:"ST",x:50,y:18}],
   "5-3-2":   [{pos:"GK",x:50,y:88},{pos:"RWB",x:86,y:68},{pos:"CB",x:68,y:76},{pos:"CB",x:50,y:78},{pos:"CB",x:32,y:76},{pos:"LWB",x:14,y:68},{pos:"CM",x:65,y:50},{pos:"CM",x:50,y:46},{pos:"CM",x:35,y:50},{pos:"ST",x:62,y:22},{pos:"ST",x:38,y:22}],
   "4-5-1":   [{pos:"GK",x:50,y:88},{pos:"RB",x:82,y:72},{pos:"CB",x:62,y:76},{pos:"CB",x:38,y:76},{pos:"LB",x:18,y:72},{pos:"RM",x:84,y:48},{pos:"CM",x:67,y:44},{pos:"CM",x:50,y:42},{pos:"CM",x:33,y:44},{pos:"LM",x:16,y:48},{pos:"ST",x:50,y:18}],
+  // ── 9-a-side (GK + 8 outfield) ───────────────────────────────────────────────
+  "9v9 3-2-3": [{pos:"GK",x:50,y:88},{pos:"CB",x:68,y:74},{pos:"CB",x:32,y:74},{pos:"CB",x:50,y:78},{pos:"CM",x:65,y:52},{pos:"CM",x:35,y:52},{pos:"RW",x:82,y:26},{pos:"ST",x:50,y:18},{pos:"LW",x:18,y:26}],
+  "9v9 3-3-2": [{pos:"GK",x:50,y:88},{pos:"CB",x:68,y:74},{pos:"CB",x:32,y:74},{pos:"CB",x:50,y:78},{pos:"RM",x:80,y:52},{pos:"CM",x:50,y:50},{pos:"LM",x:20,y:52},{pos:"ST",x:62,y:22},{pos:"ST",x:38,y:22}],
+  "9v9 2-3-3": [{pos:"GK",x:50,y:88},{pos:"CB",x:65,y:76},{pos:"CB",x:35,y:76},{pos:"RM",x:80,y:52},{pos:"CM",x:50,y:50},{pos:"LM",x:20,y:52},{pos:"RW",x:82,y:26},{pos:"ST",x:50,y:18},{pos:"LW",x:18,y:26}],
+  "9v9 3-2-1-2":[{pos:"GK",x:50,y:88},{pos:"CB",x:68,y:74},{pos:"CB",x:32,y:74},{pos:"CB",x:50,y:78},{pos:"CM",x:65,y:55},{pos:"CM",x:35,y:55},{pos:"CAM",x:50,y:38},{pos:"ST",x:65,y:22},{pos:"ST",x:35,y:22}],
+  "9v9 4-3-1": [{pos:"GK",x:50,y:88},{pos:"RB",x:80,y:72},{pos:"CB",x:62,y:76},{pos:"CB",x:38,y:76},{pos:"LB",x:20,y:72},{pos:"RM",x:78,y:50},{pos:"CM",x:50,y:48},{pos:"LM",x:22,y:50},{pos:"ST",x:50,y:20}],
 };
-const FORMATION_NAMES = Object.keys(FORMATIONS);
+
+const FORMATION_NAMES_11 = Object.keys(FORMATIONS).filter(k => !k.startsWith("9v9"));
+const FORMATION_NAMES_9  = Object.keys(FORMATIONS).filter(k =>  k.startsWith("9v9"));
+const FORMATION_NAMES    = Object.keys(FORMATIONS);
 
 // ─── Actions — full scoring matrix ────────────────────────────────────────────
 // Weights: Good=+3, Bad=-2, Neutral=+1 (per matrix)
@@ -496,19 +506,24 @@ function ClockPanel({isMobile,numPeriods,setNumPeriods,periodMins,setPeriodMins,
 
 // ─── Pre-Match Setup ──────────────────────────────────────────────────────────
 
-function PreMatchSetup({players,onConfirm,isMobile}) {
-  const [formation,setFormation]=useState("4-3-3");
-  const slots=FORMATIONS[formation];
+function PreMatchSetup({players,onConfirm,isMobile,matchFormat,onMatchFormatChange}) {
+  const formatNames = matchFormat==="9v9" ? FORMATION_NAMES_9 : FORMATION_NAMES_11;
+  const defaultFormation = matchFormat==="9v9" ? "9v9 3-2-3" : "4-3-3";
+  const [formation,setFormation]=useState(defaultFormation);
+  // When format changes, reset to default formation for that format
+  useEffect(()=>{ setFormation(matchFormat==="9v9" ? "9v9 3-2-3" : "4-3-3"); },[matchFormat]);
+  const slots=FORMATIONS[formation]||FORMATIONS[defaultFormation];
   const [lineup,setLineup]=useState(()=>Array(slots.length).fill(null));
-  useEffect(()=>setLineup(Array(FORMATIONS[formation].length).fill(null)),[formation]);
+  useEffect(()=>setLineup(Array((FORMATIONS[formation]||FORMATIONS[defaultFormation]).length).fill(null)),[formation]);
   const assignedIds=lineup.filter(Boolean);
   const benchPlayers=players.filter(p=>!assignedIds.includes(p.id));
   function assignPlayer(slotIdx,playerId){setLineup(prev=>{const next=[...prev];const ex=next.findIndex(id=>id===playerId);if(ex!==-1)next[ex]=null;next[slotIdx]=playerId||null;return next;});}
   function autoFill(){const sorted=sortPlayersByNumber(players);setLineup(Array(slots.length).fill(null).map((_,i)=>sorted[i]?.id||null));}
   function clearAll(){setLineup(Array(slots.length).fill(null));}
   function handleConfirm(){
-    const lineupData=lineup.map((playerId,idx)=>({playerId:playerId||null,slotIndex:idx,pos:slots[idx].pos,x:slots[idx].x,y:slots[idx].y}));
-    onConfirm({formation,lineupData});
+    const s=FORMATIONS[formation]||FORMATIONS[defaultFormation];
+    const lineupData=lineup.map((playerId,idx)=>({playerId:playerId||null,slotIndex:idx,pos:s[idx].pos,x:s[idx].x,y:s[idx].y}));
+    onConfirm({formation,lineupData,matchFormat});
   }
   const filledCount=lineup.filter(Boolean).length;
 
@@ -591,18 +606,30 @@ function PreMatchSetup({players,onConfirm,isMobile}) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
         <div>
           <div style={{fontSize:isMobile?20:22,fontWeight:800}}>Pre-Match Setup</div>
-          <div style={{fontSize:13,color:"#64748b",marginTop:2}}>{filledCount}/{slots.length} players assigned</div>
+          <div style={{fontSize:13,color:"#64748b",marginTop:2}}>{filledCount}/{slots.length} players assigned · {matchFormat}</div>
         </div>
         <Button onClick={handleConfirm}><ClipboardCheck size={16}/> Start Match</Button>
+      </div>
+
+      {/* Match format toggle */}
+      <div>
+        <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Match Format</div>
+        <div style={{display:"flex",gap:6}}>
+          {["11v11","9v9"].map(fmt=>(
+            <button key={fmt} onClick={()=>onMatchFormatChange(fmt)} style={{padding:"8px 18px",borderRadius:12,border:"2px solid",borderColor:matchFormat===fmt?"#0f172a":"#cbd5e1",background:matchFormat===fmt?"#0f172a":"#fff",color:matchFormat===fmt?"#fff":"#64748b",fontWeight:800,fontSize:isMobile?13:14,cursor:"pointer",transition:"all 0.15s"}}>
+              {fmt}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Formation picker */}
       <div>
         <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Formation</div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {FORMATION_NAMES.map(f=>(
+          {formatNames.map(f=>(
             <button key={f} onClick={()=>setFormation(f)} style={{padding:"7px 12px",borderRadius:12,border:"1px solid",borderColor:formation===f?"#0f172a":"#cbd5e1",background:formation===f?"#0f172a":"#fff",color:formation===f?"#fff":"#64748b",fontWeight:700,fontSize:isMobile?12:13,cursor:"pointer"}}>
-              {f}
+              {f.replace("9v9 ","")}
             </button>
           ))}
         </div>
@@ -623,9 +650,9 @@ function PreMatchSetup({players,onConfirm,isMobile}) {
             </div>
           </div>
 
-          {/* Starting XI */}
+          {/* Starting XI / Starting IX */}
           <div>
-            <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Starting XI</div>
+            <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Starting {matchFormat==="9v9"?"IX":"XI"}</div>
             {startingXIEl}
           </div>
 
@@ -649,7 +676,7 @@ function PreMatchSetup({players,onConfirm,isMobile}) {
           <div>
             <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Bench ({benchPlayers.length})</div>
             <div style={{marginBottom:12,maxHeight:200,overflow:"auto"}}>{benchEl}</div>
-            <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Starting XI</div>
+            <div style={{fontSize:12,fontWeight:700,color:"#64748b",marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Starting {matchFormat==="9v9"?"IX":"XI"}</div>
             <div style={{maxHeight:300,overflow:"auto"}}>{startingXIEl}</div>
           </div>
         </div>
@@ -1193,6 +1220,7 @@ export default function App() {
   const [matchStarted,  setMatchStarted] = useState(false);
   const periodLengthSecs=periodMins*60;
 
+  const [matchFormat, setMatchFormat] = useState("11v11");
   const [formation,  setFormation]  = useState("4-3-3");
   const [lineupData, setLineupData] = useState(null);
   const [benchIds,   setBenchIds]   = useState([]);
@@ -1269,6 +1297,7 @@ export default function App() {
       setOpponent(s.opponent||"");setOcrText(s.ocrText||"");setManualText(s.manualText||DEMO_OCR_TEXT);setOcrError(s.ocrError||"");
       if(s.numPeriods)setNumPeriods(s.numPeriods);
       if(s.periodMins)setPeriodMins(s.periodMins);
+      if(s.matchFormat)setMatchFormat(s.matchFormat);
       if(s.formation)setFormation(s.formation);
       if(s.lineupData)setLineupData(s.lineupData);
       if(s.benchIds)setBenchIds(s.benchIds);
@@ -1276,8 +1305,8 @@ export default function App() {
   },[]);
 
   useEffect(()=>{
-    localStorage.setItem(STORAGE_KEY,JSON.stringify({players,events,db,matchName,opponent,ocrText,manualText,ocrError,numPeriods,periodMins,formation,lineupData,benchIds}));
-  },[players,events,db,matchName,opponent,ocrText,manualText,ocrError,numPeriods,periodMins,formation,lineupData,benchIds]);
+    localStorage.setItem(STORAGE_KEY,JSON.stringify({players,events,db,matchName,opponent,ocrText,manualText,ocrError,numPeriods,periodMins,matchFormat,formation,lineupData,benchIds}));
+  },[players,events,db,matchName,opponent,ocrText,manualText,ocrError,numPeriods,periodMins,matchFormat,formation,lineupData,benchIds]);
 
   useEffect(()=>{
     const fn=()=>setIsMobile(window.innerWidth<=768);
@@ -1341,7 +1370,8 @@ export default function App() {
   const updatePlayer=(id,patch)=>setPlayers(prev=>sortPlayersByNumber(prev.map(p=>p.id===id?{...p,...patch}:p)));
   const removePlayer=(id)=>{setPlayers(p=>p.filter(x=>x.id!==id));setEvents(e=>e.filter(x=>x.playerId!==id));if(selectedPlayerId===id)setSelectedPlayerId(null);};
 
-  function handleLineupConfirm({formation:f,lineupData:ld}){
+  function handleLineupConfirm({formation:f,lineupData:ld,matchFormat:mf}){
+    if(mf)setMatchFormat(mf);
     setFormation(f);setLineupData(ld);
     const startIds=new Set(ld.map(s=>s.playerId).filter(Boolean));
     setBenchIds(players.filter(p=>!startIds.has(p.id)).map(p=>p.id));
@@ -1483,7 +1513,7 @@ export default function App() {
       </Modal>
 
       <Modal open={showSetup} onClose={()=>setShowSetup(false)} title="" maxWidth={isMobile?9999:900} fullscreen={isMobile}>
-        <PreMatchSetup players={players} onConfirm={handleLineupConfirm} isMobile={isMobile}/>
+        <PreMatchSetup players={players} onConfirm={handleLineupConfirm} isMobile={isMobile} matchFormat={matchFormat} onMatchFormatChange={setMatchFormat}/>
       </Modal>
     </div>
   );
